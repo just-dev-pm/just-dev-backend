@@ -1,5 +1,9 @@
-use axum::Router;
+use std::sync::Arc;
 
+use axum::{extract::State, routing::get, Router};
+use tokio::sync::Mutex;
+
+#[derive(Clone)]
 struct AppState {}
 
 pub struct App {
@@ -13,8 +17,10 @@ pub struct AppConfig {
 
 impl App {
     pub async fn new() -> Self {
+        let state = Arc::new(Mutex::new(AppState {}));
+
         App {
-            router: Router::new(),
+            router: Router::new().with_state(state.clone()),
             config: AppConfig {
                 url: String::from("127.0.0.1:3000"),
             },
