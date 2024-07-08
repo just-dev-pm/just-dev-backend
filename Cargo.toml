@@ -7,9 +7,12 @@ edition = "2021"
 
 [dependencies]
 axum = { version = "0.7.5", features = ["ws"] }
+axum-login = "0.15.3"
 chrono = { version = "0.4.38", features = ["serde"] }
 serde = "1.0.204"
 serde_json = "1.0.120"
 surrealdb = "1.5.3"
 tokio = { version = "1.38.0", features = ["full"] }
 tower-http = { version = "0.5.2", features = ["cors"] }
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
