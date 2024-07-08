@@ -3,8 +3,6 @@ use axum_login::AuthSession;
 
 use crate::{db::model::user::Credentials, usecase::util::auth_backend::AuthBackend};
 
-
-
 pub async fn login(
     mut auth_session: AuthSession<AuthBackend>,
     Json(creds): Json<Credentials>,

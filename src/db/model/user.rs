@@ -1,11 +1,10 @@
 use axum_login::AuthUser;
 use serde::{Deserialize, Serialize};
-
-
+use surrealdb::sql::Thing;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct User {
-    pub id: String,
+    pub id: Thing,
     pub username: String,
     pub avatar: Option<String>,
     pub email: Option<String>,
@@ -18,12 +17,11 @@ pub struct Credentials {
     pub password: String,
 }
 
-
 impl AuthUser for User {
     type Id = String;
 
     fn id(&self) -> Self::Id {
-        self.id.clone()
+        self.id.id.to_string()
     }
 
     fn session_auth_hash(&self) -> &[u8] {
@@ -31,6 +29,4 @@ impl AuthUser for User {
     }
 }
 
-impl User {
-
-}
+impl User {}

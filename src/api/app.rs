@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::State,
     http::{header, HeaderValue, Method},
-    routing::{get, post},
+    routing::post,
     Router,
 };
 use axum_login::{
@@ -16,10 +15,7 @@ use axum_login::{
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 
-use crate::{
-    db::{model::user::User, repository::user::UserRepository},
-    usecase::util::auth_backend::AuthBackend,
-};
+use crate::{db::repository::user::UserRepository, usecase::util::auth_backend::AuthBackend};
 
 use super::handler::auth::login;
 
