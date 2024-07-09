@@ -9,7 +9,7 @@ mod test_user {
     use axum_login::AuthUser;
     
 
-    use crate::db::{model::{status::StatusPool, user::User}, repository::user::UserRepository};
+    use crate::db::{model::{status::StatusPool, user::User}, repository::{project::ProjectRepository, user::UserRepository}};
 
     fn create_user() -> User {
         User {
@@ -50,6 +50,24 @@ mod test_user {
         assert_eq!(user.username, "test");
     }
     
+    #[tokio::test]
+    async fn test_query_project_by_id() {
+        let repository = ProjectRepository::new().await;
+        let project = repository.query_project_by_id("xiwen").await.unwrap();
+        assert_eq!(project.name, "xiwen");
+    }
 
+    #[tokio::test]
+    async fn test_query_admin_by_id() {
+        let repository = ProjectRepository::new().await;
+        let admin = repository.query_admin_by_id("xiwen").await.unwrap();
+        assert_eq!(admin.id(), "xiwen");
+    }
     
+    #[tokio::test]
+    async fn test_query_members_by_id() {
+        let repository = ProjectRepository::new().await;
+        let members = repository.query_members_by_id("xiwen").await.unwrap();
+        assert_eq!(members[0].id(), "dc");
+    }
 }
