@@ -1,7 +1,10 @@
+use serde_json::json;
+
 use crate::db::db_context::DbContext;
 use crate::db::model::project::Project;
 use crate::db::model::user::User;
 use std::io;
+
 
 pub struct ProjectRepository {
     context: DbContext,
@@ -39,9 +42,33 @@ impl ProjectRepository {
         result.ok_or(io::Error::new(io::ErrorKind::NotFound, "Project insert fail"))
     }
 
+    pub async fn update_project(&self, project: &Project) -> Result<Project, io::Error> {
+        let result: Option<Project> = self
+            .context
+            .db
+            .update(("project", project.id.as_ref().unwrap().to_string()))
+            .content(project)
+            .await
+            .unwrap();
+        result.ok_or(io::Error::new(io::ErrorKind::NotFound, "Project update fail"))
+    }
 
-    pub async fn set_user_for_project() {
 
+    pub async fn set_user_for_project(&self, user_id: &str, project_id: &str, admin: bool) -> Result<(), surrealdb::Error> {
+        let _ = self.context
+            .db
+            .query(format!("relate user:{user_id} -> join -> project:{project_id} set admin = {admin}"))
+            .await?;
+        Ok(()) 
+    }
+
+    // admin can't be deleted
+    pub async fn delete_user_from_project(&self, user_id: &str, project_id: &str) -> Result<(), surrealdb::Error> {
+        let _ = self.context
+            .db
+            .query(format!("delete join where in == user:{user_id} and out == project:{project_id} and admin == false"))
+            .await?;
+        Ok(()) 
     }
 
     pub async fn query_admin_by_id(&self, id: &str) -> Result<User, io::Error> {

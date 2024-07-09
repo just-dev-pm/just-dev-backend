@@ -1,16 +1,14 @@
 pub mod user;
-// pub mod project;
-// pub mod task;
+pub mod project;
+pub mod task;
 
 #[cfg(test)]
 mod test_user {
 
     use axum_login::AuthUser;
+    
 
-    use crate::db::{
-        model::{status::StatusPool, user::User},
-        repository::{project::ProjectRepository, user::UserRepository},
-    };
+    use crate::db::{model::{project::Project, status::StatusPool, user::User}, repository::{project::ProjectRepository, user::UserRepository}};
 
     fn create_user() -> User {
         User {
@@ -33,7 +31,7 @@ mod test_user {
     #[tokio::test]
     async fn test_query_user_by_id() {
         let user_repository = UserRepository::new().await;
-        let user = user_repository.query_user_by_id("dc").await.unwrap();
+        let user = user_repository.query_user_by_id("xiwen").await.unwrap();
         assert_eq!(user.id(), "dc");
     }
 
@@ -69,5 +67,27 @@ mod test_user {
         let repository = ProjectRepository::new().await;
         let members = repository.query_members_by_id("xiwen").await.unwrap();
         assert_eq!(members[0].id(), "dc");
+    }
+
+    #[tokio::test]
+    async fn test_insert_project() {
+        let repository = ProjectRepository::new().await;
+        let project = repository.insert_project(&Project {id: None, name: "test".to_string(), avatar: None, status_pool: StatusPool::default()}).await.unwrap();
+        assert_eq!(project.name, "test");
+    }
+
+    #[tokio::test] 
+    async fn test_set_user_for_project() {
+        let repository = ProjectRepository::new().await;
+
+        let result = repository.set_user_for_project("dc", "xiwen", false).await.unwrap();
+        assert_eq!(result, ());
+    }
+
+    #[tokio::test]
+    async fn test_delete_user_from_project() {
+        let repository = ProjectRepository::new().await;
+        let result = repository.delete_user_from_project("dc", "xiwen").await.unwrap();
+        assert_eq!(result, ());
     }
 }
