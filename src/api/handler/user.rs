@@ -13,12 +13,15 @@ use tokio::sync::Mutex;
 use crate::{
     api::{
         app::AppState,
-        model::{status::StatusPool, user::User},
+        model::{project::Project, status::StatusPool, user::User},
     },
     usecase::util::auth_backend::AuthBackend,
 };
 
-use super::util::{authorize_against_user_id, user_api_to_db, user_db_to_api};
+use super::util::{
+    authorize_against_project_id, authorize_against_user_id, project_db_to_api, user_api_to_db,
+    user_db_to_api,
+};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetUserInfoResponse {
@@ -121,4 +124,39 @@ pub async fn patch_user_info(
     };
 
     (StatusCode::OK, Json(PatchUserInfoResponse { user })).into_response()
+}
+
+#[derive(Serialize)]
+pub struct GetProjectInfoResponse {
+    #[serde(flatten)]
+    pub project: Project,
+}
+
+pub async fn get_project_info(
+    auth_session: AuthSession<AuthBackend>,
+    State(state): State<Arc<Mutex<AppState>>>,
+    Path(project_id): Path<String>,
+) -> impl IntoResponse {
+    let state = state.lock().await;
+    if let Some(value) =
+        authorize_against_project_id(auth_session, &state.project_repo, &project_id).await
+    {
+        return value;
+    }
+
+    let project = state.project_repo.query_project_by_id(&project_id).await;
+
+    match project {
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(project) => {
+            let project = project_db_to_api(project);
+
+            match project {
+                None => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+                Some(project) => {
+                    (StatusCode::OK, Json(GetProjectInfoResponse { project })).into_response()
+                }
+            }
+        }
+    }
 }

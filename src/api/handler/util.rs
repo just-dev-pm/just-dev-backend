@@ -1,11 +1,14 @@
-use axum::{http::StatusCode, response::IntoResponse};
+use axum::{extract::ws::close_code::PROTOCOL, http::StatusCode, response::IntoResponse};
 use axum_login::{AuthSession, AuthUser};
 
 use crate::{
     api::model::status::{IndexedStatusItem, StatusItem},
-    db::model::{
-        project::Project,
-        status::{Status, StatusPool},
+    db::{
+        model::{
+            project::Project,
+            status::{Status, StatusPool},
+        },
+        repository::project::ProjectRepository,
     },
     usecase::util::auth_backend::AuthBackend,
 };
@@ -22,6 +25,39 @@ pub fn authorize_against_user_id(
         },
     };
     None
+}
+
+pub async fn authorize_against_project_id(
+    auth_session: AuthSession<AuthBackend>,
+    project_repo: &ProjectRepository,
+    project_id: &String,
+) -> Option<axum::http::Response<axum::body::Body>> {
+    let user_id = match auth_session.user {
+        None => return Some(StatusCode::UNAUTHORIZED.into_response()),
+        Some(user) => user.id(),
+    };
+
+    let admin = project_repo.query_admin_by_id(project_id).await;
+    let members = project_repo.query_members_by_id(project_id).await;
+
+    match (admin, members) {
+        (Ok(admin), Ok(members)) => {
+            let member_id_eqs: Vec<_> = members
+                .iter()
+                .map(|user| {
+                    user.id
+                        .clone()
+                        .is_some_and(|thing| thing.id.to_string().eq(&user_id))
+                })
+                .collect();
+            if admin.id().eq(&user_id) || member_id_eqs.contains(&true) {
+                None
+            } else {
+                Some(StatusCode::UNAUTHORIZED.into_response())
+            }
+        }
+        _ => Some(StatusCode::UNAUTHORIZED.into_response()),
+    }
 }
 
 pub fn user_db_to_api(user: crate::db::model::user::User) -> Option<crate::api::model::user::User> {
