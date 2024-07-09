@@ -17,7 +17,7 @@ use tower_http::cors::CorsLayer;
 
 use crate::{db::repository::user::UserRepository, usecase::util::auth_backend::AuthBackend};
 
-use super::handler::auth::{login, signup};
+use super::handler::auth::{login, logout, signup};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -65,6 +65,7 @@ impl App {
             router: Router::new()
                 .route("/api/auth/login", post(login))
                 .route("/api/auth/signup", post(signup))
+                .route("/api/auth/logout", post(logout))
                 .layer(auth_layer)
                 .layer(cors_layer)
                 .with_state(state.clone()),

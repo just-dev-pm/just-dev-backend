@@ -84,3 +84,10 @@ pub async fn signup(
         None => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 }
+
+pub async fn logout(mut auth_session: AuthSession<AuthBackend>) -> impl IntoResponse {
+    match auth_session.logout().await {
+        Ok(_) => (StatusCode::OK, "log out successfully").into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
