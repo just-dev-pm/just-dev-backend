@@ -10,9 +10,17 @@ use axum_login::AuthSession;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
-use crate::{api::app::AppState, usecase::util::auth_backend::AuthBackend};
+use crate::{
+    api::{
+        app::AppState,
+        model::{project::Project, user::User},
+    },
+    usecase::util::auth_backend::AuthBackend,
+};
 
-use super::util::authorize_against_user_id;
+use super::util::{
+    authorize_against_project_id, authorize_against_user_id, project_db_to_api, user_db_to_api,
+};
 
 #[derive(Serialize, Deserialize)]
 pub struct GetProjectsForUserResponse {
@@ -93,4 +101,85 @@ pub async fn get_projects_for_user(
         }),
     )
         .into_response()
+}
+
+#[derive(Serialize)]
+pub struct GetProjectInfoResponse {
+    #[serde(flatten)]
+    pub project: Project,
+}
+
+pub async fn get_project_info(
+    auth_session: AuthSession<AuthBackend>,
+    State(state): State<Arc<Mutex<AppState>>>,
+    Path(project_id): Path<String>,
+) -> impl IntoResponse {
+    let state = state.lock().await;
+    if let Some(value) =
+        authorize_against_project_id(auth_session, &state.project_repo, &project_id).await
+    {
+        return value;
+    }
+
+    let project = state.project_repo.query_project_by_id(&project_id).await;
+
+    match project {
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(project) => {
+            let project = project_db_to_api(project);
+
+            match project {
+                None => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+                Some(project) => {
+                    (StatusCode::OK, Json(GetProjectInfoResponse { project })).into_response()
+                }
+            }
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct GetUsersForProjectResponse {
+    pub users: Vec<User>,
+}
+
+pub async fn get_users_for_project(
+    auth_session: AuthSession<AuthBackend>,
+    State(state): State<Arc<Mutex<AppState>>>,
+    Path(project_id): Path<String>,
+) -> impl IntoResponse {
+    let state = state.lock().await;
+    if let Some(value) =
+        authorize_against_project_id(auth_session, &state.project_repo, &project_id).await
+    {
+        return value;
+    }
+
+    let members = state.project_repo.query_members_by_id(&project_id).await;
+    let admin = state.project_repo.query_admin_by_id(&project_id).await;
+
+    match (admin, members) {
+        (Ok(admin), Ok(members)) => {
+            let admin = user_db_to_api(admin);
+            let members: Option<Vec<_>> = members
+                .iter()
+                .map(|user| user_db_to_api(user.clone()))
+                .collect();
+            match (admin, members) {
+                (Some(admin), Some(ref mut members)) => {
+                    members.push(admin);
+
+                    (
+                        StatusCode::OK,
+                        Json(GetUsersForProjectResponse {
+                            users: members.clone(),
+                        }),
+                    )
+                        .into_response()
+                }
+                _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            }
+        }
+        _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
 }

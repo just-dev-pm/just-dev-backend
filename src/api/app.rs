@@ -23,8 +23,8 @@ use crate::{
 
 use super::handler::{
     auth::{login, logout, signup},
-    project::get_projects_for_user,
-    user::{get_project_info, get_user_info, patch_user_info},
+    project::{get_project_info, get_projects_for_user, get_users_for_project},
+    user::{get_user_info, patch_user_info},
 };
 
 #[derive(Clone)]
@@ -75,6 +75,10 @@ impl App {
 
         App {
             router: Router::new()
+                .route(
+                    "/api/projects/:project_id/users",
+                    get(get_users_for_project),
+                )
                 .route("/api/projects/:project_id", get(get_project_info))
                 .route("/api/users/:user_id/projects", get(get_projects_for_user))
                 .route("/api/users/:user_id", patch(patch_user_info))
