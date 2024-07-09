@@ -3,7 +3,6 @@ use axum_login::AuthUser;
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::Thing;
 
-use super::status::StatusPool;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct User {

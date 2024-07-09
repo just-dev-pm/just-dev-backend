@@ -21,21 +21,21 @@ impl AuthnBackend for AuthBackend {
         Credentials { username, password }: Self::Credentials,
     ) -> Result<Option<Self::User>, Self::Error> {
         match self.user_repo.query_user_by_name(&username).await {
-            Some(user) => {
+            Ok(user) => {
                 if user.password == password {
                     Ok(Some(user))
                 } else {
                     Ok(None)
                 }
             }
-            None => Ok(None),
+            Err(_) => Ok(None),
         }
     }
 
     async fn get_user(&self, user_id: &UserId<Self>) -> Result<Option<Self::User>, Self::Error> {
         match self.user_repo.query_user_by_id(user_id).await {
-            Some(user) => Ok(Some(user)),
-            None => Ok(None),
+            Ok(user) => Ok(Some(user)),
+            Err(_) => Ok(None),
         }
     }
 }
