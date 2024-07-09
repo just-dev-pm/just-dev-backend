@@ -2,10 +2,11 @@ use std::sync::Arc;
 
 use axum::{
     http::{header, HeaderValue, Method},
-    routing::post,
+    routing::{get, post},
     Router,
 };
 use axum_login::{
+    login_required,
     tower_sessions::{
         cookie::{time::Duration, SameSite},
         Expiry, MemoryStore, SessionManagerLayer,
@@ -17,7 +18,10 @@ use tower_http::cors::CorsLayer;
 
 use crate::{db::repository::user::UserRepository, usecase::util::auth_backend::AuthBackend};
 
-use super::handler::auth::{login, logout, signup};
+use super::handler::{
+    auth::{login, logout, signup},
+    user::get_user_info,
+};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -63,6 +67,8 @@ impl App {
 
         App {
             router: Router::new()
+                .route("/api/users/:user_id", get(get_user_info))
+                .route_layer(login_required!(AuthBackend, login_url = "/login"))
                 .route("/api/auth/login", post(login))
                 .route("/api/auth/signup", post(signup))
                 .route("/api/auth/logout", post(logout))
