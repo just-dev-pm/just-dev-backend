@@ -5,7 +5,7 @@ use crate::db::model::project::Project;
 use crate::db::model::user::User;
 use std::io;
 
-
+#[derive(Clone)]
 pub struct ProjectRepository {
     context: DbContext,
 }

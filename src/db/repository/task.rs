@@ -12,6 +12,7 @@ use crate::db::{
 
 use super::utils::{get_io_error, get_str_id};
 
+#[derive(Clone)]
 pub struct TaskRepository {
     pub context: DbContext,
 }

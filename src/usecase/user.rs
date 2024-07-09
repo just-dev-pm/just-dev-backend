@@ -15,8 +15,9 @@ pub async fn insert_user(user_repo:&UserRepository, task_repo:&TaskRepository, u
         .content(user)
         .await
         .map_err(|e| get_io_error(e))?.pop();
+    let user = result.ok_or(io::Error::new(io::ErrorKind::NotFound, "User insert fail"))?;
 
-    task_repo.insert_extask_list_for_user("Tasks assigned to you", &user.id());
+    task_repo.insert_extask_list_for_user("Tasks assigned to you", &user.id()).await?;
     
-    result.ok_or(io::Error::new(io::ErrorKind::NotFound, "User insert fail"))
+    Ok(user)
 }
