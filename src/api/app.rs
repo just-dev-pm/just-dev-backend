@@ -17,7 +17,7 @@ use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 
 use crate::{
-    db::repository::{task::TaskRepository, user::UserRepository},
+    db::repository::{project::ProjectRepository, task::TaskRepository, user::UserRepository},
     usecase::util::auth_backend::AuthBackend,
 };
 
@@ -31,6 +31,7 @@ use super::handler::{
 pub struct AppState {
     pub user_repo: UserRepository,
     pub task_repo: TaskRepository,
+    pub project_repo: ProjectRepository,
 }
 
 pub struct App {
@@ -47,6 +48,7 @@ impl App {
         let state = Arc::new(Mutex::new(AppState {
             user_repo: UserRepository::new().await,
             task_repo: TaskRepository::new().await,
+            project_repo: ProjectRepository::new().await,
         }));
 
         let session_store = MemoryStore::default();

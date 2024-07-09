@@ -3,7 +3,10 @@ use axum_login::{AuthSession, AuthUser};
 
 use crate::{
     api::model::status::{IndexedStatusItem, StatusItem},
-    db::model::status::{Status, StatusPool},
+    db::model::{
+        project::Project,
+        status::{Status, StatusPool},
+    },
     usecase::util::auth_backend::AuthBackend,
 };
 
@@ -121,5 +124,22 @@ pub fn credential_api_to_user_db(
         email: String::new(),
         password: cred.password,
         status_pool: StatusPool::default(),
+    })
+}
+
+pub fn project_db_to_api(
+    project: crate::db::model::project::Project,
+) -> Option<crate::api::model::project::Project> {
+    let id = match project.id {
+        None => return None,
+        Some(id) => id.id.to_string(),
+    };
+
+    Some(crate::api::model::project::Project {
+        id,
+        name: project.name,
+        description: String::new(),
+        avatar: project.avatar,
+        status_pool: status_pool_db_to_api(project.status_pool),
     })
 }
