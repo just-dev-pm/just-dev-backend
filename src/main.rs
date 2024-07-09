@@ -4,15 +4,9 @@ mod api;
 mod db;
 mod usecase;
 
-#[derive(Clone)]
-struct AppState {}
-
 #[tokio::main]
 async fn main() {
-
-    tracing_subscriber::fmt()
-        .with_max_level(Level::WARN)
-        .init();
+    tracing_subscriber::fmt().with_max_level(Level::WARN).init();
 
     let app = App::new().await;
 

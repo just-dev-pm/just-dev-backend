@@ -17,10 +17,12 @@ use tower_http::cors::CorsLayer;
 
 use crate::{db::repository::user::UserRepository, usecase::util::auth_backend::AuthBackend};
 
-use super::handler::auth::login;
+use super::handler::auth::{login, signup};
 
 #[derive(Clone)]
-struct AppState {}
+pub struct AppState {
+    pub user_repo: UserRepository,
+}
 
 pub struct App {
     router: Router,
@@ -33,7 +35,9 @@ pub struct AppConfig {
 
 impl App {
     pub async fn new() -> Self {
-        let state = Arc::new(Mutex::new(AppState {}));
+        let state = Arc::new(Mutex::new(AppState {
+            user_repo: UserRepository::new().await,
+        }));
 
         let session_store = MemoryStore::default();
         let session_layer = SessionManagerLayer::new(session_store)
@@ -60,6 +64,7 @@ impl App {
         App {
             router: Router::new()
                 .route("/api/auth/login", post(login))
+                .route("/api/auth/signup", post(signup))
                 .layer(auth_layer)
                 .layer(cors_layer)
                 .with_state(state.clone()),

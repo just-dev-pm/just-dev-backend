@@ -1,15 +1,16 @@
 pub mod user;
-pub mod project;
-pub mod task;
-
+// pub mod project;
+// pub mod task;
 
 #[cfg(test)]
 mod test_user {
 
     use axum_login::AuthUser;
-    
 
-    use crate::db::{model::{status::StatusPool, user::User}, repository::{project::ProjectRepository, user::UserRepository}};
+    use crate::db::{
+        model::{status::StatusPool, user::User},
+        repository::{project::ProjectRepository, user::UserRepository},
+    };
 
     fn create_user() -> User {
         User {
@@ -49,7 +50,6 @@ mod test_user {
         let user = repository.update_user("dc", &create_user()).await.unwrap();
         assert_eq!(user.username, "test");
     }
-    
     #[tokio::test]
     async fn test_query_project_by_id() {
         let repository = ProjectRepository::new().await;
@@ -63,7 +63,7 @@ mod test_user {
         let admin = repository.query_admin_by_id("xiwen").await.unwrap();
         assert_eq!(admin.id(), "xiwen");
     }
-    
+
     #[tokio::test]
     async fn test_query_members_by_id() {
         let repository = ProjectRepository::new().await;
