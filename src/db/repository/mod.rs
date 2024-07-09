@@ -1,8 +1,10 @@
 pub mod user;
 pub mod project;
 pub mod task;
-// pub mod notification;
-// pub mod requirement;
+pub mod notification;
+pub mod requirement;
+pub mod agenda;
+pub mod draft;
 pub mod utils;
 
 #[cfg(test)]
@@ -11,7 +13,7 @@ mod test_user {
     use axum_login::AuthUser;
     
 
-    use crate::{db::{model::{project::Project, status::StatusPool, task::Task, user::User}, repository::{project::ProjectRepository, task::TaskRepository, user::UserRepository}}, usecase::user::insert_user};
+    use crate::{db::{model::{project::Project, status::StatusPool, task::Task, user::User}, repository::{draft::DraftRepository, project::ProjectRepository, task::TaskRepository, user::UserRepository}}, usecase::user::insert_user};
 
     fn create_user() -> User {
         User {
@@ -100,5 +102,19 @@ mod test_user {
         let repository = TaskRepository::new().await;
         let result = repository.insert_task_for_task_list(&Task::new("succceed".to_string()), "xiwen").await.unwrap();
         assert_eq!(result.name, "succceed");
+    }
+
+    #[tokio::test]
+    async fn test_query_draft_by_id() {
+        let repository = DraftRepository::new().await;
+        let result = repository.query_draft_by_id("xiwen").await.unwrap();
+        assert_eq!(result.name, "xiwen");
+    }
+
+    #[tokio::test]
+    async fn test_query_project_join_by_id() {
+        let repository = UserRepository::new().await;
+        let result = repository.query_project_join_by_id("xiwen").await.unwrap();
+        assert_eq!(result.0[0].name, "xiwen");
     }
 }

@@ -1,6 +1,11 @@
 use std::io;
 
-use crate::db::{db_context::DbContext, model::user::User};
+use crate::db::{
+    db_context::DbContext,
+    model::{project::Project, user::User},
+};
+
+use super::utils::get_io_error;
 
 #[derive(Clone, Debug)]
 pub struct UserRepository {
@@ -37,8 +42,7 @@ impl UserRepository {
         user.ok_or(io::Error::new(io::ErrorKind::NotFound, "User not found"))
     }
 
-
-    pub async fn update_user(&self, user_id:&str, user: &User) -> Result<User, io::Error> {
+    pub async fn update_user(&self, user_id: &str, user: &User) -> Result<User, io::Error> {
         let result: Option<User> = self
             .context
             .db
@@ -47,5 +51,20 @@ impl UserRepository {
             .await
             .unwrap();
         result.ok_or(io::Error::new(io::ErrorKind::NotFound, "User update fail"))
+    }
+
+    pub async fn query_project_join_by_id(&self, user_id: &str) -> Result<(Vec<Project>, Vec<Project>), io::Error> {
+        let mut response = self
+            .context
+            .db
+            .query(format!(
+                "select out.* as project from join where in.id == user:{user_id} and admin == true"
+            ))
+            .query(format!("select out.* as project from join where in.id == user:{user_id} and admin == false"))
+            .await
+            .map_err(get_io_error)?;
+        let admin_projects: Vec<Project> = response.take((0, "project")).map_err(get_io_error)?;
+        let member_projects: Vec<Project> = response.take((1, "project")).map_err(get_io_error)?;
+        Ok((admin_projects, member_projects))
     }
 }
