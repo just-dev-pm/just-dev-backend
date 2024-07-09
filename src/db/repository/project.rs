@@ -98,4 +98,5 @@ impl ProjectRepository {
         let members: Vec<User> = response.take((0, "in")).unwrap(); //TODO: add error handling
         Ok(members)
     }
+
 }
