@@ -12,7 +12,7 @@ pub struct User {
     pub avatar: String,
     pub email: String,
     pub password: String,
-    pub status_pool: Option<StatusPool>,
+    pub status_pool: Option<Thing>,
 }
 
 #[derive(Deserialize, Clone, Debug)]

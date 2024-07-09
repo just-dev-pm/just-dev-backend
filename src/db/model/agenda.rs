@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use surrealdb::sql::{Datetime, Duration, Thing};
+use surrealdb::sql::{Datetime, Thing};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Agenda {
