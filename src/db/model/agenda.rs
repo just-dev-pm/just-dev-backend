@@ -13,6 +13,6 @@ pub struct Event {
     id: Option<Thing>,
     name: String,
     description: String,
-    datetime: Option<Datetime>,
-    duration: Option<Duration>,
+    start_time: Option<Datetime>,
+    end_time: Option<Datetime>,
 }
