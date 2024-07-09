@@ -1,6 +1,7 @@
 pub mod user;
 pub mod project;
 pub mod task;
+pub mod utils;
 
 #[cfg(test)]
 mod test_user {
@@ -8,7 +9,7 @@ mod test_user {
     use axum_login::AuthUser;
     
 
-    use crate::db::{model::{project::Project, status::StatusPool, user::User}, repository::{project::ProjectRepository, user::UserRepository}};
+    use crate::db::{model::{project::Project, status::StatusPool, task::Task, user::User}, repository::{project::ProjectRepository, task::TaskRepository, user::UserRepository}};
 
     fn create_user() -> User {
         User {
@@ -89,5 +90,12 @@ mod test_user {
         let repository = ProjectRepository::new().await;
         let result = repository.delete_user_from_project("dc", "xiwen").await.unwrap();
         assert_eq!(result, ());
+    }
+
+    #[tokio::test]
+    async fn test_insert_task_for_task_list() {
+        let repository = TaskRepository::new().await;
+        let result = repository.insert_task_for_task_list(&Task::new("succceed".to_string()), "xiwen").await.unwrap();
+        assert_eq!(result.name, "succceed");
     }
 }

@@ -4,15 +4,19 @@ use surrealdb::sql::{Datetime, Thing};
 use super::{status::StatusPool, user::User};
 
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct Task {
     pub id: Option<Thing>,
     pub name: String,
     pub description: String,
+    #[serde(rename = "status")]
     pub status_number: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub status_pool: Option<StatusPool>,
     pub complete: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ddl: Option<Datetime>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub assignees: Option<Vec<User>>,
 }
 
@@ -23,5 +27,40 @@ pub struct TaskList {
     pub name: String,
     pub tasks: Option<Vec<Task>>,
     pub owner: Option<User>,
+}
+
+impl Task {
+    pub fn new(name: String) -> Self {
+        Self {
+            id: None,
+            name,
+            description: "".to_string(),
+            status_number: 0,
+            status_pool: None,
+            complete: false,
+            ddl: None,
+            assignees: None,
+        }
+    }
+}
+
+impl TaskList {
+    pub fn new(name: String) -> Self  {
+        Self {
+            id: None,
+            name,
+            tasks: None,
+            owner: None,
+        }
+    }
+
+    pub fn new_with_id(name: String, id: &str, table: &str) -> Self  {
+        Self {
+            id: Some(Thing::from((table, id))),
+            name,
+            tasks: None,
+            owner: None,
+        }
+    }
 }
 
