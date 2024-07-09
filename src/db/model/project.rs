@@ -5,6 +5,6 @@ use surrealdb::sql::Thing;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Project {
     id: Option<Thing>,
-    name: String,
+    pub name: String,
 }
 
