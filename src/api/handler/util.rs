@@ -1,5 +1,6 @@
 use axum::{extract::ws::close_code::PROTOCOL, http::StatusCode, response::IntoResponse};
 use axum_login::{AuthSession, AuthUser};
+use surrealdb::sql::Thing;
 
 use crate::{
     api::model::status::{IndexedStatusItem, StatusItem},
@@ -178,4 +179,25 @@ pub fn project_db_to_api(
         avatar: project.avatar,
         status_pool: status_pool_db_to_api(project.status_pool),
     })
+}
+
+pub fn project_api_to_db(
+    project: crate::api::model::project::Project,
+) -> crate::db::model::project::Project {
+    crate::db::model::project::Project {
+        id: if project.id.is_empty() {
+            None
+        } else {
+            Some(Thing::from((
+                "project",
+                surrealdb::sql::Id::String(project.id),
+            )))
+        },
+        name: project.name,
+        avatar: project.avatar,
+        status_pool: match project.status_pool {
+            None => StatusPool::default(),
+            Some(status_pool) => status_pool_api_to_db(status_pool),
+        },
+    }
 }

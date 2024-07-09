@@ -13,13 +13,14 @@ use tokio::sync::Mutex;
 use crate::{
     api::{
         app::AppState,
-        model::{project::Project, user::User},
+        model::{project::Project, status::StatusPool, user::User},
     },
     usecase::util::auth_backend::AuthBackend,
 };
 
 use super::util::{
-    authorize_against_project_id, authorize_against_user_id, project_db_to_api, user_db_to_api,
+    authorize_against_project_id, authorize_against_user_id, project_api_to_db, project_db_to_api,
+    user_db_to_api,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -181,5 +182,78 @@ pub async fn get_users_for_project(
             }
         }
         _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateProjectRequest {
+    name: String,
+    description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    avatar: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    status_pool: Option<StatusPool>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateProjectResponse {
+    #[serde(flatten)]
+    pub project: Project,
+}
+
+pub async fn create_project(
+    auth_session: AuthSession<AuthBackend>,
+    State(state): State<Arc<Mutex<AppState>>>,
+    Json(req): Json<CreateProjectRequest>,
+) -> impl IntoResponse {
+    let user_id = auth_session.user;
+
+    let user_id = match user_id {
+        None => return StatusCode::UNAUTHORIZED.into_response(),
+        Some(id) => id,
+    };
+
+    let user_id = user_id.id;
+
+    let user_id = match user_id {
+        None => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Some(id) => id.id.to_string(),
+    };
+
+    let db_project = project_api_to_db(Project {
+        id: String::new(),
+        name: req.name,
+        description: req.description,
+        avatar: req.avatar,
+        status_pool: req.status_pool,
+    });
+    let state = state.lock().await;
+
+    let returned_db_project = state.project_repo.insert_project(&db_project).await;
+
+    let db_project = match returned_db_project {
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(project) => project,
+    };
+
+    let api_project = project_db_to_api(db_project);
+
+    let project_id = match api_project {
+        None => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Some(ref project) => project.id.clone(),
+    };
+
+    let result = state
+        .project_repo
+        .set_user_for_project(&user_id, &project_id, true)
+        .await;
+
+    if let Err(_) = result {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
+
+    match api_project {
+        None => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Some(project) => (StatusCode::OK, Json(CreateProjectResponse { project })).into_response(),
     }
 }
