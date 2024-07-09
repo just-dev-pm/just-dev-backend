@@ -1,6 +1,6 @@
 use crate::{
     api::model::status::{IndexedStatusItem, StatusItem},
-    db::model::status::StatusPool,
+    db::model::status::{Status, StatusPool},
 };
 
 pub fn user_db_to_api(user: crate::db::model::user::User) -> Option<crate::api::model::user::User> {
@@ -29,6 +29,26 @@ pub fn user_db_to_api(user: crate::db::model::user::User) -> Option<crate::api::
     }
 }
 
+pub fn user_api_to_db(
+    user: crate::api::model::user::User,
+    password: &str,
+) -> crate::db::model::user::User {
+    crate::db::model::user::User {
+        id: Some(surrealdb::sql::Thing::from((
+            String::from("user"),
+            surrealdb::sql::Id::String(user.id),
+        ))),
+        username: user.username,
+        avatar: user.avatar.unwrap_or(String::new()),
+        password: String::from(password),
+        email: user.email.unwrap_or(String::new()),
+        status_pool: match user.status_pool {
+            None => StatusPool::default(),
+            Some(status_pool) => status_pool_api_to_db(status_pool),
+        },
+    }
+}
+
 pub fn status_pool_db_to_api(
     status_pool: crate::db::model::status::StatusPool,
 ) -> Option<crate::api::model::status::StatusPool> {
@@ -49,6 +69,28 @@ pub fn status_pool_db_to_api(
             description: status_pool.complete.description,
         },
     })
+}
+
+pub fn status_pool_api_to_db(status_pool: crate::api::model::status::StatusPool) -> StatusPool {
+    StatusPool {
+        id: None,
+        incomplete: status_pool
+            .incomplete
+            .iter()
+            .map(|indexed| Status {
+                name: indexed.clone().status.name,
+                description: indexed.clone().status.description,
+                id: None,
+                number: indexed.id.parse().ok(),
+            })
+            .collect(),
+        complete: Status {
+            name: status_pool.complete.name,
+            number: None,
+            description: status_pool.complete.description,
+            id: None,
+        },
+    }
 }
 
 pub fn credential_api_to_user_db(

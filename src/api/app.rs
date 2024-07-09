@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     http::{header, HeaderValue, Method},
-    routing::{get, post},
+    routing::{get, patch, post},
     Router,
 };
 use axum_login::{
@@ -20,7 +20,7 @@ use crate::{db::repository::user::UserRepository, usecase::util::auth_backend::A
 
 use super::handler::{
     auth::{login, logout, signup},
-    user::get_user_info,
+    user::{get_user_info, patch_user_info},
 };
 
 #[derive(Clone)]
@@ -67,6 +67,7 @@ impl App {
 
         App {
             router: Router::new()
+                .route("/api/users/:user_id", patch(patch_user_info))
                 .route("/api/users/:user_id", get(get_user_info))
                 .route_layer(login_required!(AuthBackend, login_url = "/login"))
                 .route("/api/auth/login", post(login))
