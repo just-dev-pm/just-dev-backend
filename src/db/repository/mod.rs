@@ -4,12 +4,12 @@ pub mod task;
 
 
 #[cfg(test)]
-mod test {
+mod test_user {
 
     use axum_login::AuthUser;
-    use surrealdb::sql::{Id, Thing};
+    
 
-    use crate::db::{model::user::User, repository::user::UserRepository};
+    use crate::db::{model::{status::StatusPool, user::User}, repository::user::UserRepository};
 
     fn create_user() -> User {
         User {
@@ -18,7 +18,7 @@ mod test {
             avatar: "test".to_string(),
             email: "test".to_string(),
             password: "".to_string(),
-            status_pool: Some(Thing {tb: "status_pool".to_string(), id: Id::String("test".to_string())}),
+            status_pool: StatusPool::default(),
         }
     }
 

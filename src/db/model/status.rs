@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use surrealdb::sql::Thing;
 
 
-#[derive(Clone, Deserialize, Serialize, Debug)]
+#[derive(Clone, Deserialize, Serialize, Debug, Default)]
 pub struct Status {
     pub id: Option<Thing>,
     pub name: String,
@@ -10,7 +10,7 @@ pub struct Status {
     pub number: Option<i32>,
 }
 
-#[derive(Deserialize, Clone, Serialize, Debug)]
+#[derive(Deserialize, Clone, Serialize, Debug, Default)]
 pub struct StatusPool {
     pub id: Option<Thing>,
     pub incomplete: Vec<Status>,
