@@ -1,6 +1,5 @@
 use std::io;
 
-
 use crate::db::{
     db_context::DbContext,
     model::{
@@ -72,7 +71,8 @@ impl TaskRepository {
                 .context
                 .db
                 .query(format!(
-                    "relate task_list:{task_list_id} -> have -> task:{}", get_str_id(&task.id)
+                    "relate task_list:{task_list_id} -> have -> task:{}",
+                    get_str_id(&task.id)
                 ))
                 .await
                 .map_err(|e| get_io_error(e))?;
@@ -82,12 +82,20 @@ impl TaskRepository {
         }
     }
 
-    pub async fn insert_extask_list_for_user(&self, name: &str, user_id: &str) -> Result<TaskList, io::Error> {
-        let result:Option<TaskList> = self
+    pub async fn insert_extask_list_for_user(
+        &self,
+        name: &str,
+        user_id: &str,
+    ) -> Result<TaskList, io::Error> {
+        let result: Option<TaskList> = self
             .context
             .db
             .create("task_list")
-            .content(&TaskList::new_with_id(name.to_string(), user_id,"task_list"))
+            .content(&TaskList::new_with_id(
+                name.to_string(),
+                user_id,
+                "task_list",
+            ))
             .await
             .map_err(|e| get_io_error(e))?
             .pop();
@@ -104,16 +112,27 @@ impl TaskRepository {
                 .map_err(|e| get_io_error(e))?;
             Ok(task_list)
         } else {
-            Err(io::Error::new(io::ErrorKind::NotFound, "TaskList insert fail"))
+            Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "TaskList insert fail",
+            ))
         }
     }
 
-    pub async fn insert_task_list_for_user(&self, name:&str, user_id: &str) -> Result<TaskList, io::Error> {
-        let result:Option<TaskList> = self
+    pub async fn insert_task_list_for_user(
+        &self,
+        name: &str,
+        user_id: &str,
+    ) -> Result<TaskList, io::Error> {
+        let result: Option<TaskList> = self
             .context
             .db
             .create("task_list")
-            .content(&TaskList::new_with_id(name.to_string(), user_id,"task_list"))
+            .content(&TaskList::new_with_id(
+                name.to_string(),
+                user_id,
+                "task_list",
+            ))
             .await
             .map_err(|e| get_io_error(e))?
             .pop();
@@ -130,11 +149,18 @@ impl TaskRepository {
                 .map_err(|e| get_io_error(e))?;
             Ok(task_list)
         } else {
-            Err(io::Error::new(io::ErrorKind::NotFound, "TaskList insert fail"))
+            Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "TaskList insert fail",
+            ))
         }
     }
 
-    pub async fn assign_task_to_user(&self, task_id: &str, user_id: &str) -> Result<Task, io::Error> {
+    pub async fn assign_task_to_user(
+        &self,
+        task_id: &str,
+        user_id: &str,
+    ) -> Result<Task, io::Error> {
         let mut task = self.query_task_by_id(task_id).await?;
         task.id = None;
         let task = self.insert_task_for_task_list(&task, user_id).await?; // insert task into user's special tasklist

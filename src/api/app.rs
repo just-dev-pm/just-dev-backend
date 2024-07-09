@@ -16,16 +16,21 @@ use axum_login::{
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 
-use crate::{db::repository::user::UserRepository, usecase::util::auth_backend::AuthBackend};
+use crate::{
+    db::repository::{task::TaskRepository, user::UserRepository},
+    usecase::util::auth_backend::AuthBackend,
+};
 
 use super::handler::{
     auth::{login, logout, signup},
+    project::get_projects_for_user,
     user::{get_user_info, patch_user_info},
 };
 
 #[derive(Clone)]
 pub struct AppState {
     pub user_repo: UserRepository,
+    pub task_repo: TaskRepository,
 }
 
 pub struct App {
@@ -41,6 +46,7 @@ impl App {
     pub async fn new() -> Self {
         let state = Arc::new(Mutex::new(AppState {
             user_repo: UserRepository::new().await,
+            task_repo: TaskRepository::new().await,
         }));
 
         let session_store = MemoryStore::default();
@@ -67,6 +73,7 @@ impl App {
 
         App {
             router: Router::new()
+                .route("/api/users/:user_id/projects", get(get_projects_for_user))
                 .route("/api/users/:user_id", patch(patch_user_info))
                 .route("/api/users/:user_id", get(get_user_info))
                 .route_layer(login_required!(AuthBackend, login_url = "/login"))

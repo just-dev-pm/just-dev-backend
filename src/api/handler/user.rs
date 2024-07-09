@@ -18,7 +18,7 @@ use crate::{
     usecase::util::auth_backend::AuthBackend,
 };
 
-use super::util::{user_api_to_db, user_db_to_api};
+use super::util::{authorize_against_user_id, user_api_to_db, user_db_to_api};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetUserInfoResponse {
@@ -31,13 +31,9 @@ pub async fn get_user_info(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(user_id): Path<String>,
 ) -> impl IntoResponse {
-    match auth_session.user {
-        None => return StatusCode::UNAUTHORIZED.into_response(),
-        Some(user) => match user.id().eq(&user_id) {
-            true => (),
-            false => return StatusCode::UNAUTHORIZED.into_response(),
-        },
-    };
+    if let Some(value) = authorize_against_user_id(auth_session, &user_id) {
+        return value;
+    }
 
     let state = state.lock().await;
     let db_user = state.user_repo.query_user_by_id(&user_id).await;
@@ -73,14 +69,9 @@ pub async fn patch_user_info(
     Path(user_id): Path<String>,
     Json(req): Json<PatchUserInfoRequest>,
 ) -> impl IntoResponse {
-    match auth_session.user {
-        None => return StatusCode::UNAUTHORIZED.into_response(),
-        Some(user) => match user.id().eq(&user_id) {
-            true => (),
-            false => return StatusCode::UNAUTHORIZED.into_response(),
-        },
-    };
-
+    if let Some(value) = authorize_against_user_id(auth_session, &user_id) {
+        return value;
+    }
     let user = state
         .lock()
         .await

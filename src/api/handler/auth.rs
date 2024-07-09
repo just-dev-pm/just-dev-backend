@@ -11,7 +11,7 @@ use crate::{
         model::user::{Credential, User},
     },
     db::model::user::Credentials,
-    usecase::util::auth_backend::AuthBackend,
+    usecase::{user::insert_user, util::auth_backend::AuthBackend},
 };
 
 use super::util::{credential_api_to_user_db, user_db_to_api};
@@ -71,7 +71,14 @@ pub async fn signup(
 ) -> impl IntoResponse {
     let db_user = match credential_api_to_user_db(req.credential) {
         None => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        Some(user) => state.lock().await.user_repo.insert_user(&user).await,
+        Some(user) => {
+            insert_user(
+                &state.lock().await.user_repo,
+                &state.lock().await.task_repo,
+                &user,
+            )
+            .await
+        }
     };
 
     let return_api_user = match db_user {

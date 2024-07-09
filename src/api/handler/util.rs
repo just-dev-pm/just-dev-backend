@@ -1,7 +1,25 @@
+use axum::{http::StatusCode, response::IntoResponse};
+use axum_login::{AuthSession, AuthUser};
+
 use crate::{
     api::model::status::{IndexedStatusItem, StatusItem},
     db::model::status::{Status, StatusPool},
+    usecase::util::auth_backend::AuthBackend,
 };
+
+pub fn authorize_against_user_id(
+    auth_session: AuthSession<AuthBackend>,
+    user_id: &String,
+) -> Option<axum::http::Response<axum::body::Body>> {
+    match auth_session.user {
+        None => return Some(StatusCode::UNAUTHORIZED.into_response()),
+        Some(user) => match user.id().eq(user_id) {
+            true => (),
+            false => return Some(StatusCode::UNAUTHORIZED.into_response()),
+        },
+    };
+    None
+}
 
 pub fn user_db_to_api(user: crate::db::model::user::User) -> Option<crate::api::model::user::User> {
     if let Some(id) = user.id {
