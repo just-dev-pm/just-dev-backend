@@ -11,7 +11,7 @@ struct AppState {}
 async fn main() {
 
     tracing_subscriber::fmt()
-        .with_max_level(Level::TRACE)
+        .with_max_level(Level::WARN)
         .init();
 
     let app = App::new().await;
