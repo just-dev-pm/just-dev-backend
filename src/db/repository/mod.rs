@@ -117,4 +117,11 @@ mod test_user {
         let result = repository.query_project_join_by_id("xiwen").await.unwrap();
         assert_eq!(result.0[0].name, "xiwen");
     }
+
+    #[tokio::test]
+    async fn test_insert_draft() {
+        let repository = DraftRepository::new().await;
+        let result = repository.insert_draft("xiwen").await.unwrap();
+        assert_eq!(result.name, "xiwen");
+    }
 }
