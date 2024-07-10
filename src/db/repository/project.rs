@@ -4,10 +4,14 @@ use crate::db::model::project::Project;
 use crate::db::model::user::User;
 use std::io;
 
+use super::repo::Repository;
+
 #[derive(Clone)]
 pub struct ProjectRepository {
     context: DbContext,
 }
+
+impl Repository for ProjectRepository {}
 
 impl ProjectRepository {
     pub async fn new() -> ProjectRepository {
@@ -30,18 +34,7 @@ impl ProjectRepository {
     }
 
     pub async fn insert_project(&self, project: &Project) -> Result<Project, io::Error> {
-        let result: Option<Project> = self
-            .context
-            .db
-            .create("project")
-            .content(project)
-            .await
-            .unwrap()
-            .pop();
-        result.ok_or(io::Error::new(
-            io::ErrorKind::NotFound,
-            "Project insert fail",
-        ))
+        self.create_resource(&self.context, project.to_owned(), "project").await
     }
 
     pub async fn update_project(&self, project: &Project, project_id: &str) -> Result<Project, io::Error> {

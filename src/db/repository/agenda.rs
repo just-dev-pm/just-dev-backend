@@ -1,15 +1,15 @@
 use std::io;
 
-use crate::db::{db_context::DbContext, model::agenda::Agenda};
+use crate::db::{db_context::DbContext, model::agenda::{Agenda, Event}};
 
-use super::utils::get_io_error;
-
-
+use super::repo::Repository;
 
 #[derive(Clone)]
 pub struct AgendaRepository {
     pub context: DbContext,
 }
+
+impl Repository for AgendaRepository {}
 
 impl AgendaRepository {
     pub async fn new() -> Self {
@@ -17,15 +17,62 @@ impl AgendaRepository {
             context: DbContext::new().await,
         }
     }
-
     pub async fn query_agenda_by_id(&self, id: &str) -> Result<Agenda, io::Error> {
-        let agenda: Option<Agenda> = self
-            .context
-            .db
-            .select(("agenda", id))
-            .await
-            .map_err(get_io_error)?;
-        agenda.ok_or(io::Error::new(io::ErrorKind::NotFound, "Agenda not found"))
+        self.select_resourse(&self.context, id, "agenda").await
+    }
+
+    pub async fn insert_agenda_for_user(
+        &self,
+        user_id: &str,
+        name: &str,
+    ) -> Result<Agenda, io::Error> {
+        let agenda = Agenda::new(name.to_owned());
+
+        let agenda = self
+            .create_resource(&self.context, agenda, "agenda")
+            .await?;
+        let _ = self.exec_query(
+            &self.context,
+            format!(
+                "relate user:{user_id} -> own -> agenda:{}",
+                agenda.id.as_ref().unwrap()
+            ),
+        );
+        Ok(agenda)
+    }
+
+    pub async fn insert_agenda_for_project(
+        &self,
+        name: &str,
+        project_id: &str,
+    ) -> Result<Agenda, io::Error> {
+        let agenda = Agenda::new(name.to_owned());
+        let agenda = self
+            .create_resource(&self.context, agenda, "agenda")
+            .await?;
+        let _ = self
+            .exec_query(
+                &self.context,
+                format!(
+                    "relate project:{project_id} -> own -> agenda:{}",
+                    agenda.id.as_ref().unwrap()
+                ),
+            )
+            .await?;
+        Ok(agenda)
+    }
+
+    pub async fn insert_event_for_agenda(&self, event: Event, agenda_id: &str) -> Result<Event, io::Error> {
+        let event = self.create_resource(&self.context, event, "event").await?;
+        let _ = self
+            .exec_query(
+                &self.context,
+                format!(
+                    "relate agenda:{agenda_id} -> plan -> event:{}",
+                    event.id.as_ref().unwrap()
+                ),
+            )
+            .await?;
+        Ok(event)
     }
 }
-

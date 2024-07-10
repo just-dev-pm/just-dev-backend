@@ -1,15 +1,16 @@
 use std::io;
 
+use surrealdb::sql::Thing;
+
 use crate::db::{
     db_context::DbContext,
     model::{
         status::StatusPool,
         task::{Task, TaskList},
-        user::User,
     },
 };
 
-use super::utils::{get_io_error, get_str_id};
+use super::utils::{get_io_error, get_str_id, unwrap_things};
 
 #[derive(Clone)]
 pub struct TaskRepository {
@@ -35,19 +36,19 @@ impl TaskRepository {
             .context
             .db
             .query(format!(
-                "SELECT <-follow<-have<-task_list<-own<-user as assignees FROM task where id == task:{}",
+                "SELECT <-follow<-have<-task_list<-own<-user as user as assignees FROM task where id == task:{}",
                 id
             ))
-            .query(format!("select <-have<-task_list<-own<-user.status_pool from task where id == task:{}", id))
-            .query(format!("select <-have<-task_list<-own<-project.status_pool from task where id == task:{}", id))
+            .query(format!("select <-have<-task_list<-own<-user.status_pool.* as status_pool from task where id == task:{}", id))
+            .query(format!("select <-have<-task_list<-own<-project.status_pool.* as status_pool from task where id == task:{}", id))
             .await
             .unwrap();
-        let assignees: Vec<User> = response.take(0).unwrap();
-        let status_pool_user: Option<StatusPool> = response.take(1).unwrap();
-        let status_pool_project: Option<StatusPool> = response.take(2).unwrap();
+        let assignees: Vec<Thing> = response.take((0, "user")).unwrap();
+        let status_pool_user: Option<StatusPool> = response.take((1, "status_pool")).unwrap();
+        let status_pool_project: Option<StatusPool> = response.take((2, "status_pool")).unwrap();
 
         if let Some(task) = task.as_mut() {
-            task.assignees = Some(assignees);
+            task.assignees = Some(unwrap_things(assignees));
             task.status_pool = status_pool_project.or(status_pool_user);
         }
         task.ok_or(io::Error::new(io::ErrorKind::NotFound, "Task not found"))
@@ -189,15 +190,15 @@ impl TaskRepository {
             .context
             .db
             .query(format!(
-                "SELECT ->have->task FROM task_list where id == task_list:{}",
+                "SELECT ->have->task as tasks FROM task_list where id == task_list:{}",
                 id
             ))
             .await
             .unwrap();
-        let tasks: Vec<Task> = response.take(0).unwrap();
+        let tasks: Vec<Thing> = response.take((0, "tasks")).unwrap();
 
         if let Some(task) = task_list.as_mut() {
-            task.tasks = Some(tasks);
+            task.tasks = Some(unwrap_things(tasks));
         }
         task_list.ok_or(io::Error::new(
             io::ErrorKind::NotFound,

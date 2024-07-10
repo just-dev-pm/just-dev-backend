@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Datetime, Thing};
 
+use crate::db::repository::utils::DbModelId;
+
 use super::{status::StatusPool, user::User};
 
 
@@ -17,7 +19,7 @@ pub struct Task {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ddl: Option<Datetime>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub assignees: Option<Vec<User>>,
+    pub assignees: Option<Vec<DbModelId>>,
 }
 
 
@@ -25,8 +27,8 @@ pub struct Task {
 pub struct TaskList {
     pub id: Option<Thing>,
     pub name: String,
-    pub tasks: Option<Vec<Task>>,
-    pub owner: Option<User>,
+    pub tasks: Option<Vec<DbModelId>>,
+    pub owner: Option<DbModelId>,
 }
 
 impl Task {
