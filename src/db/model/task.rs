@@ -22,6 +22,17 @@ pub struct Task {
     pub assignees: Option<Vec<DbModelId>>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct TaskLink {
+    pub id: Option<Thing>,
+    #[serde(rename = "in")]
+    pub incoming: Option<Thing>,
+    #[serde(rename = "out")]
+    pub outgoing: Option<Thing>,
+    #[serde(rename = "type")]
+    pub kind: String,
+}
+
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct TaskList {

@@ -284,4 +284,24 @@ mod test_user {
         let result = repo.query_task_list_by_user_id("xiwen").await.unwrap();
         assert!(result.contains(&"xiwen".to_owned()))
     }
+
+    #[tokio::test]
+    async fn test_query_task_links_by_task_id() {
+        let repo = TaskRepository::new().await;
+        let result = repo.query_task_links_by_task_id("xiwen").await.unwrap();
+        assert!(result.len() == 2)
+    }
+
+    #[tokio::test]
+    async fn test_insert_delete_links() {
+        let repo = TaskRepository::new().await;
+        let task_link = repo
+            .insert_task_link("xiwen", "orig", "auto")
+            .await
+            .unwrap();
+        assert_eq!(task_link.kind, "auto");
+        let link_id = unwrap_thing(task_link.id.clone().unwrap());
+        let task_link = repo.delete_task_link_by_id(&link_id).await.unwrap();
+        assert_eq!(task_link.kind, "auto");
+    }
 }

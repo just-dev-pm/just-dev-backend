@@ -11,6 +11,8 @@ pub mod util;
 
 #[cfg(test)]
 mod tests {
+    use std::default;
+
     use self::{
         status::{ActualStatusItem, IndexedStatusItem, Status, StatusItem, StatusPool},
         task::{Task, TaskRelation},
@@ -19,7 +21,7 @@ mod tests {
     };
 
     use super::*;
-    use chrono::{TimeZone, Utc};
+    use chrono::{DateTime, TimeZone, Utc};
     use serde_json;
 
     #[test]
@@ -111,7 +113,7 @@ mod tests {
             description: "I must do something".to_owned(),
             assignees: vec![],
             status: None,
-            deadline: None,
+            deadline: DateTime::default(),
         };
 
         let json = serde_json::to_string(&task).unwrap();

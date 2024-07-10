@@ -6,7 +6,7 @@ use crate::db::{
     db_context::DbContext,
     model::{
         status::StatusPool,
-        task::{Task, TaskList},
+        task::{Task, TaskLink, TaskList},
     },
 };
 
@@ -168,10 +168,56 @@ impl TaskRepository {
     pub async fn query_task_list_by_user_id(&self, id: &str) -> Result<Vec<DbModelId>, io::Error> {
         let mut response = exec_query(
             &self.context,
-            format!("SELECT ->own->task_list as task_lists FROM user where id == user:{}", id),
+            format!(
+                "SELECT ->own->task_list as task_lists FROM user where id == user:{}",
+                id
+            ),
         )
         .await?;
-        let task_lists = response.take::<Option<Vec<Thing>>>((0, "task_lists")).map_err(get_io_error)?.unwrap_or_default();
+        let task_lists = response
+            .take::<Option<Vec<Thing>>>((0, "task_lists"))
+            .map_err(get_io_error)?
+            .unwrap_or_default();
         Ok(unwrap_things(task_lists))
+    }
+
+    pub async fn query_task_links_by_task_id(
+        &self,
+        task_id: &str,
+    ) -> Result<Vec<TaskLink>, io::Error> {
+
+        let mut response = exec_double_query(
+            &self.context,
+            format!("select * from link where out.id == task:{task_id}"),
+            format!("select * from link where in.id == task:{task_id}"),
+        )
+        .await?;
+        let mut tasks: Vec<_> = response
+            .take::<Vec<TaskLink>>(0)
+            .map_err(get_io_error)?;
+            
+        tasks.extend(
+            response
+                .take::<Vec<TaskLink>>(1)
+                .map_err(get_io_error)?
+        );
+
+        Ok(tasks)
+    }
+
+    pub async fn insert_task_link(&self, former: &str, latter: &str, kind: &str) -> Result<TaskLink, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!(
+                "relate task:{former} -> link -> task:{latter} set type = '{kind}'",
+            )
+        ).await?;
+        let link = response.take::<Option<TaskLink>>(0).map_err(get_io_error)?;
+        link.ok_or(custom_io_error("Create link fail"))
+    }
+
+    pub async fn delete_task_link_by_id(&self, task_link_id: &str) -> Result<TaskLink, io::Error> {
+        let task_link: Option<TaskLink> = self.context.db.delete(("link", task_link_id)).await.map_err(get_io_error)?;
+        task_link.ok_or(custom_io_error("Delete link fail"))
     }
 }
