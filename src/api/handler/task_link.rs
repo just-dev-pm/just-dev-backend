@@ -6,7 +6,7 @@ use axum::{
     Json,
 };
 use axum_login::AuthSession;
-use serde::{Deserialize, Serialize};
+use serde::{de::IntoDeserializer, Deserialize, Serialize};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -109,6 +109,27 @@ pub async fn delete_task_link(
     auth_session: AuthSession<AuthBackend>,
     State(state): State<Arc<Mutex<AppState>>>,
     Path(link_id): Path<String>,
+) -> impl IntoResponse {
+    todo!()
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PatchTaskLinkRequest {
+    #[serde(flatten)]
+    pub category: TaskRelationType,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PatchTaskLinkResponse {
+    #[serde(flatten)]
+    pub task_relation: TaskRelation,
+}
+
+pub async fn patch_task_link(
+    auth_session: AuthSession<AuthBackend>,
+    State(state): State<Arc<Mutex<AppState>>>,
+    Path(link_id): Path<String>,
+    Json(req): Json<PatchTaskLinkRequest>,
 ) -> impl IntoResponse {
     todo!()
 }
