@@ -12,12 +12,19 @@ mod test_user {
 
     use axum_login::AuthUser;
 
-
     use crate::{
         db::{
-            model::{agenda::Event, draft::DraftPayload, project::Project, status::StatusPool, task::Task, user::User},
+            model::{
+                agenda::Event, draft::DraftPayload, project::Project, status::StatusPool,
+                task::Task, user::User,
+            },
             repository::{
-                agenda::AgendaRepository, draft::DraftRepository, project::ProjectRepository, task::TaskRepository, user::UserRepository
+                agenda::AgendaRepository,
+                draft::DraftRepository,
+                project::ProjectRepository,
+                task::{Entity, TaskRepository},
+                user::UserRepository,
+                utils::unwrap_thing,
             },
         },
         usecase::user::insert_user,
@@ -30,7 +37,7 @@ mod test_user {
             avatar: "test".to_string(),
             email: "test".to_string(),
             password: "".to_string(),
-            status_pool: StatusPool::default(),
+            status_pool: StatusPool::new(),
         }
     }
 
@@ -61,6 +68,8 @@ mod test_user {
     #[tokio::test]
     async fn test_update_user() {
         let repository = UserRepository::new().await;
+        let mut user = create_user();
+        user.username = "dc".to_owned();
         let mut user = repository.update_user("dc", &create_user()).await.unwrap();
         assert_eq!(user.username, "test");
         user.username = "dc".to_owned();
@@ -95,7 +104,7 @@ mod test_user {
                 id: None,
                 name: "test".to_string(),
                 avatar: None,
-                status_pool: StatusPool::default(),
+                status_pool: StatusPool::new(),
             })
             .await
             .unwrap();
@@ -116,6 +125,10 @@ mod test_user {
     #[tokio::test]
     async fn test_delete_user_from_project() {
         let repository = ProjectRepository::new().await;
+        let _ = repository
+            .set_user_for_project("dc", "xiwen", false)
+            .await
+            .unwrap();
         let result = repository
             .delete_user_from_project("dc", "xiwen")
             .await
@@ -150,14 +163,20 @@ mod test_user {
     #[tokio::test]
     async fn test_insert_draft_for_user() {
         let repository = DraftRepository::new().await;
-        let result = repository.insert_draft_for_user("xiwen", "xiwen").await.unwrap();
+        let result = repository
+            .insert_draft_for_user("xiwen", "xiwen")
+            .await
+            .unwrap();
         assert_eq!(result.name, "xiwen");
     }
 
     #[tokio::test]
     async fn test_insert_draft_for_project() {
         let repository = DraftRepository::new().await;
-        let result = repository.insert_draft_for_project("xiwen", "xiwen").await.unwrap();
+        let result = repository
+            .insert_draft_for_project("xiwen", "xiwen")
+            .await
+            .unwrap();
         assert_eq!(result.name, "xiwen");
     }
 
@@ -172,7 +191,6 @@ mod test_user {
         };
         let result = repo.update_project(&project, "test").await.unwrap();
         assert_eq!(result.name, "xiwen");
-        
     }
 
     #[tokio::test]
@@ -198,10 +216,13 @@ mod test_user {
         assert_eq!(result.name, "xiwen");
     }
 
-    #[tokio::test] 
+    #[tokio::test]
     async fn test_insert_agenda_for_project() {
         let repo = AgendaRepository::new().await;
-        let result = repo.insert_agenda_for_project("test", "xiwen").await.unwrap();
+        let result = repo
+            .insert_agenda_for_project("test", "xiwen")
+            .await
+            .unwrap();
         assert_eq!(result.name, "test");
     }
 
@@ -216,7 +237,7 @@ mod test_user {
     #[tokio::test]
     async fn test_query_task_by_id() {
         let repo = TaskRepository::new().await;
-        let result = repo.query_task_by_id("xiwen").await.unwrap();
+        let result = repo.query_task_by_id("xiwen", Entity::User).await.unwrap();
         assert_eq!(result.name, "xiwen");
     }
 
@@ -235,7 +256,32 @@ mod test_user {
         assert!(result.contains(&"xiwen".to_string()));
     }
 
-        
+    #[tokio::test]
+    async fn test_assign_task_to_user() {
+        let task_repo = TaskRepository::new().await;
+        let user_repo = UserRepository::new().await;
+        let user = insert_user(&user_repo, &task_repo, &create_user())
+            .await
+            .unwrap();
+        let user_id = unwrap_thing(user.id.clone().unwrap());
+        let result = task_repo
+            .assign_task_to_user("xiwen", &user_id)
+            .await
+            .unwrap();
+        let user_task_list = task_repo.query_task_list_by_id(&user_id).await.unwrap();
+        let task_id = user_task_list.tasks.unwrap().pop().unwrap();
+        let task = task_repo
+            .query_task_by_id(&task_id, Entity::User)
+            .await
+            .unwrap();
+        assert_eq!(task.name, "xiwen");
+        assert_eq!(result.name, "xiwen");
+    }
+
+    #[tokio::test]
+    async fn test_query_task_list_by_user_id() {
+        let repo = TaskRepository::new().await;
+        let result = repo.query_task_list_by_user_id("xiwen").await.unwrap();
+        assert!(result.contains(&"xiwen".to_owned()))
+    }
 }
-
-

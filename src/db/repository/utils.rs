@@ -26,7 +26,7 @@ pub fn unwrap_things(things: Vec<Thing>) -> Vec<DbModelId> {
 }
 
 
-use surrealdb::Response;
+use surrealdb::{opt, Response};
 
 use crate::db::db_context::DbContext;
 
@@ -74,4 +74,12 @@ pub async fn exec_query(context: &DbContext, query: String) -> Result<Response, 
 pub async fn exec_double_query(context: &DbContext, query1: String, query2: String) -> Result<Response, io::Error> {
     context.db.query(query1).query(query2).await.map_err(get_io_error)
 }
+
+pub async fn extract_from_response<T>(response:&mut Response, index: impl opt::QueryResult<Option<T>>) -> Result<T, io::Error>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let result = response.take::<Option<T>>(index).map_err(get_io_error)?;
+    result.ok_or(io::Error::new(io::ErrorKind::NotFound, "Resource not found"))
+} 
 

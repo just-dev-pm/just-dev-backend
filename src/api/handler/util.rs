@@ -173,7 +173,7 @@ pub fn status_pool_db_to_api(
             .incomplete
             .iter()
             .map(|status| IndexedStatusItem {
-                id: format!("{}", status.number.unwrap()),
+                id: format!("{}", status.number),
                 status: StatusItem {
                     name: status.name.clone(),
                     description: status.description.clone(),
@@ -189,22 +189,19 @@ pub fn status_pool_db_to_api(
 
 pub fn status_pool_api_to_db(status_pool: crate::api::model::status::StatusPool) -> StatusPool {
     StatusPool {
-        id: None,
         incomplete: status_pool
             .incomplete
             .iter()
             .map(|indexed| Status {
                 name: indexed.clone().status.name,
                 description: indexed.clone().status.description,
-                id: None,
-                number: indexed.id.parse().ok(),
+                number: indexed.id.to_owned(),
             })
             .collect(),
         complete: Status {
             name: status_pool.complete.name,
-            number: None,
+            number: "0".to_owned(),
             description: status_pool.complete.description,
-            id: None,
         },
     }
 }

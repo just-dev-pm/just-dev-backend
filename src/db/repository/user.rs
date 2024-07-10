@@ -132,7 +132,7 @@ impl UserRepository {
         .await?;
         let mut task_lists =
             response.take::<Option<Vec<Thing>>>((0, "task_lists")).map_err(get_io_error)?.unwrap_or_default();
-        task_lists.extend(response.take::<Option<Vec<Thing>>>((1, "task_list")).map_err(get_io_error)?.unwrap_or_default());
+        task_lists.extend(response.take::<Option<Vec<Thing>>>((1, "task_lists")).map_err(get_io_error)?.unwrap_or_default());
 
         Ok(unwrap_things(task_lists))
     }

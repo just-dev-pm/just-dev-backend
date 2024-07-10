@@ -15,7 +15,7 @@ mod test {
     fn create_user() -> User {
         User {
             id: None,
-            username: "test".to_string(),
+            username: "test_insert_user".to_string(),
             avatar: "test".to_string(),
             email: "test".to_string(),
             password: "".to_string(),
@@ -31,6 +31,6 @@ mod test {
         let user = insert_user(&user_repo, &task_repo, &create_user())
             .await
             .unwrap();
-        assert_eq!(user.username, "test");
+        assert_eq!(user.username, "test_insert_user");
     }
 }
