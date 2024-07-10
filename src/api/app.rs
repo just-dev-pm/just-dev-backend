@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     http::{header, HeaderValue, Method},
-    routing::{get, post},
+    routing::{delete, get, post},
     Router,
 };
 use axum_login::{
@@ -17,15 +17,34 @@ use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 
 use crate::{
-    db::repository::{project::ProjectRepository, task::TaskRepository, user::UserRepository},
+    db::{
+        model::agenda::Agenda,
+        repository::{
+            agenda::AgendaRepository, draft::DraftRepository, project::ProjectRepository,
+            task::TaskRepository, user::UserRepository,
+        },
+    },
     usecase::{invitation_token::InvitationTokenRepository, util::auth_backend::AuthBackend},
 };
 
 use super::handler::{
     auth::{login, logout, signup},
+    draft::{
+        create_draft_for_project, create_draft_for_user, get_draft_info, get_drafts_for_project,
+        get_drafts_for_user, patch_draft_info,
+    },
     project::{
         accept_invitation, create_project, gen_invitation_token, get_project_info,
-        get_projects_for_user, get_users_for_project, patch_project,
+        get_projects_for_user, get_token_info, get_users_for_project, patch_project,
+    },
+    task::{create_task_for_list, delete_task_from_list, get_tasks_for_list, patch_task},
+    task_link::{
+        create_task_link_for_project, create_task_link_for_user, delete_task_link,
+        get_links_for_task, get_task_links_for_project, get_task_links_for_user,
+    },
+    task_list::{
+        create_task_list_for_project, create_task_list_for_user, delete_task_list,
+        get_task_list_info, get_task_lists_for_project, get_task_lists_for_user,
     },
     user::{get_user_info, patch_user_info},
 };
@@ -35,6 +54,8 @@ pub struct AppState {
     pub user_repo: UserRepository,
     pub task_repo: TaskRepository,
     pub project_repo: ProjectRepository,
+    pub agenda_repo: AgendaRepository,
+    pub draft_repo: DraftRepository,
     pub invitation_token_repo: Arc<Mutex<InvitationTokenRepository>>,
 }
 
@@ -53,6 +74,8 @@ impl App {
             user_repo: UserRepository::new().await,
             task_repo: TaskRepository::new().await,
             project_repo: ProjectRepository::new().await,
+            agenda_repo: AgendaRepository::new().await,
+            draft_repo: DraftRepository::new().await,
             invitation_token_repo: Arc::new(Mutex::new(InvitationTokenRepository::default())),
         }));
 
@@ -80,6 +103,49 @@ impl App {
 
         App {
             router: Router::new()
+                .route("/api/links/:link_id", delete(delete_task_link))
+                .route(
+                    "/api/projects/:project_id/links",
+                    post(create_task_link_for_project).get(get_task_links_for_project),
+                )
+                .route(
+                    "/api/users/:user_id/links",
+                    post(create_task_link_for_user).get(get_task_links_for_user),
+                )
+                .route("/api/links/tasks/:task_id", get(get_links_for_task))
+                .route(
+                    "/api/task_lists/:task_list_id/tasks/:task_id",
+                    delete(delete_task_from_list).patch(patch_task),
+                )
+                .route(
+                    "/api/task_lists/:task_list_id/tasks",
+                    get(get_tasks_for_list).post(create_task_for_list),
+                )
+                .route(
+                    "/api/users/:user_id/task_lists",
+                    get(get_task_lists_for_user).post(create_task_list_for_user),
+                )
+                .route(
+                    "/api/projects/:project_id/task_lists",
+                    get(get_task_lists_for_project).post(create_task_list_for_project),
+                )
+                .route(
+                    "/api/task_lists/:task_list_id",
+                    get(get_task_list_info).delete(delete_task_list),
+                )
+                .route(
+                    "/api/projects/:project_id/drafts",
+                    get(get_drafts_for_project).post(create_draft_for_project),
+                )
+                .route(
+                    "/api/users/:user_id/drafts",
+                    get(get_drafts_for_user).post(create_draft_for_user),
+                )
+                .route(
+                    "/api/drafts/:draft_id",
+                    get(get_draft_info).patch(patch_draft_info),
+                )
+                .route("/api/invitation/:token_id", get(get_token_info))
                 .route("/api/invitation/accept", post(accept_invitation))
                 .route("/api/invitation/generate", post(gen_invitation_token))
                 .route("/api/projects", post(create_project))

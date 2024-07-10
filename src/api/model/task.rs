@@ -11,8 +11,7 @@ pub struct Task {
     pub assignees: Vec<Id>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<Status>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub deadline: Option<DateTime<Utc>>,
+    pub deadline: DateTime<Utc>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

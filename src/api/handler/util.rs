@@ -9,7 +9,7 @@ use crate::{
             project::Project,
             status::{Status, StatusPool},
         },
-        repository::project::ProjectRepository,
+        repository::{project::ProjectRepository, user::UserRepository},
     },
     usecase::util::auth_backend::AuthBackend,
 };
@@ -80,6 +80,44 @@ pub async fn authorize_admin_against_project_id(
         },
     }
 }
+
+// pub async fn authorize_against_draft_id(
+//     auth_session: &AuthSession<AuthBackend>,
+//     user_repo: &UserRepository,
+//     project_repo: &ProjectRepository,
+//     draft_id: &String,
+// ) -> Option<axum::http::Response<axum::body::Body>> {
+//     let user_id = match auth_session.user.clone() {
+//         None => return Some(StatusCode::UNAUTHORIZED.into_response()),
+//         Some(user) => user.id(),
+//     };
+
+//     let user_drafts = user_repo
+//         .query_draft_by_id(&user_id)
+//         .await
+//         .unwrap_or(Some(StatusCode::UNAUTHORIZED.into_response()));
+
+//     let (admin_projects, member_projects) = user_repo
+//         .query_project_join_by_id(&user_id)
+//         .await
+//         .unwrap_or(Some(StatusCode::UNAUTHORIZED.into_response()));
+
+//     let admin_projects: Option<Vec<_>> = admin_projects
+//         .iter()
+//         .map(|proj| proj.id.clone().map(|id| id.id.to_string()))
+//         .collect();
+
+//     let admin_projects = admin_projects.unwrap_or(Some(StatusCode::UNAUTHORIZED.into_response()));
+
+//     let member_projects: Option<Vec<_>> = member_projects
+//         .iter()
+//         .map(|proj| proj.id.clone().map(|id| id.id.to_string()))
+//         .collect();
+
+//     let member_projects = member_projects.unwrap_or(Some(StatusCode::UNAUTHORIZED.into_response()));
+
+//     let admin_project_drafts: Result<Vec<_>, _> = admin_projects.iter().map(|id| project_repo.query_project_by_id())
+// }
 
 pub fn user_db_to_api(user: crate::db::model::user::User) -> Option<crate::api::model::user::User> {
     if let Some(id) = user.id {

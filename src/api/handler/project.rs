@@ -6,7 +6,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use axum_login::AuthSession;
+use axum_login::{AuthSession, AuthUser};
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
@@ -426,4 +426,59 @@ pub async fn accept_invitation(
         Ok(_) => StatusCode::OK.into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GetTokenInfoResponse {
+    pub invitor_name: String,
+    pub project_name: String,
+}
+
+pub async fn get_token_info(
+    auth_session: AuthSession<AuthBackend>,
+    State(state): State<Arc<Mutex<AppState>>>,
+    Path(token_id): Path<String>,
+) -> impl IntoResponse {
+    let state = state.lock().await;
+    let invitation_token_repo = &state.invitation_token_repo.lock().await;
+
+    let kv = invitation_token_repo.tokens.get_key_value(&token_id);
+
+    let invitation_info = match kv {
+        None => return StatusCode::NOT_FOUND.into_response(),
+        Some(kv) => kv.1.clone(),
+    };
+
+    if let Some(value) = authorize_against_user_id(auth_session, &invitation_info.inviter) {
+        return value;
+    }
+
+    let db_invitor = &state
+        .user_repo
+        .query_user_by_id(&invitation_info.inviter)
+        .await;
+
+    let invitor_name = match db_invitor {
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(invitor) => invitor.clone().username,
+    };
+
+    let db_project = &state
+        .project_repo
+        .query_project_by_id(&invitation_info.project)
+        .await;
+
+    let project_name = match db_project {
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(project) => project.clone().name,
+    };
+
+    (
+        StatusCode::OK,
+        Json(GetTokenInfoResponse {
+            invitor_name,
+            project_name,
+        }),
+    )
+        .into_response()
 }
