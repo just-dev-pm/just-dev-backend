@@ -85,7 +85,7 @@ impl UserRepository {
         let mut response = exec_double_query(
             &self.context,
             format!("select ->own->draft as drafts from user where id == user:{user_id}"),
-            format!("select ->join->project->own->drafts as drafts from user where id == user:{user_id}")
+            format!("select ->join->project->own->draft as drafts from user where id == user:{user_id}")
         )
         .await?;
         let mut drafts = response
@@ -127,7 +127,7 @@ impl UserRepository {
         let mut response = exec_double_query(
             &self.context,
             format!("select ->own->task_list as task_lists from user where id == user:{user_id}"),
-            format!("select ->join->project->own->agenda as agendas from user where id == user:{user_id}")
+            format!("select ->join->project->own->task_list as task_lists from user where id == user:{user_id}")
         )
         .await?;
         let mut task_lists =
