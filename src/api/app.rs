@@ -24,8 +24,8 @@ use crate::{
 use super::handler::{
     auth::{login, logout, signup},
     project::{
-        create_project, gen_invitation_token, get_project_info, get_projects_for_user,
-        get_users_for_project, patch_project,
+        accept_invitation, create_project, gen_invitation_token, get_project_info,
+        get_projects_for_user, get_users_for_project, patch_project,
     },
     user::{get_user_info, patch_user_info},
 };
@@ -80,6 +80,7 @@ impl App {
 
         App {
             router: Router::new()
+                .route("/api/invitation/accept", post(accept_invitation))
                 .route("/api/invitation/generate", post(gen_invitation_token))
                 .route("/api/projects", post(create_project))
                 .route(

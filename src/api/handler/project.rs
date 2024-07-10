@@ -16,7 +16,10 @@ use crate::{
         app::AppState,
         model::{project::Project, status::StatusPool, user::User},
     },
-    usecase::{invitation_token::InvitationInfo, util::auth_backend::AuthBackend},
+    usecase::{
+        invitation_token::{self, InvitationInfo},
+        util::auth_backend::AuthBackend,
+    },
 };
 
 use super::util::{
@@ -382,4 +385,45 @@ pub async fn gen_invitation_token(
         Json(GenInvitationTokenResponse { invitation_token }),
     )
         .into_response()
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AcceptInvitationRequest {
+    invitation_token: String,
+}
+
+pub async fn accept_invitation(
+    auth_session: AuthSession<AuthBackend>,
+    State(state): State<Arc<Mutex<AppState>>>,
+    Json(req): Json<AcceptInvitationRequest>,
+) -> impl IntoResponse {
+    let state = state.lock().await;
+    let mut invitation_token_repo = state.invitation_token_repo.lock().await;
+
+    let kv = invitation_token_repo
+        .tokens
+        .get_key_value(&req.invitation_token);
+
+    let invitation_info = match kv {
+        None => return StatusCode::NOT_FOUND.into_response(),
+        Some(kv) => kv.1.clone(),
+    };
+
+    if let Some(value) = authorize_against_user_id(auth_session, &invitation_info.invitee) {
+        return value;
+    }
+
+    invitation_token_repo
+        .tokens
+        .retain(|_, v| v.clone() != invitation_info);
+
+    let result = state
+        .project_repo
+        .set_user_for_project(&invitation_info.invitee, &invitation_info.project, false)
+        .await;
+
+    match result {
+        Ok(_) => StatusCode::OK.into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
 }
