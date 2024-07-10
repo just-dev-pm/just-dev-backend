@@ -6,7 +6,6 @@ pub mod requirement;
 pub mod task;
 pub mod user;
 pub mod utils;
-pub mod repo;
 
 #[cfg(test)]
 mod test_user {
@@ -210,7 +209,7 @@ mod test_user {
     async fn test_insert_event_for_agenda() {
         let repo = AgendaRepository::new().await;
         let event = Event::new("xiwen".into(), "test".into());
-        let result = repo.insert_event_for_agenda(event, "xiwen").await.unwrap();
+        let result = repo.insert_event_for_agenda(&event, "xiwen").await.unwrap();
         assert_eq!(result.description, "test")
     }
 

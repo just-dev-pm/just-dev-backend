@@ -10,7 +10,7 @@ use crate::db::{
     },
 };
 
-use super::utils::{get_io_error, get_str_id, unwrap_things};
+use super::utils::*;
 
 #[derive(Clone)]
 pub struct TaskRepository {
@@ -25,12 +25,7 @@ impl TaskRepository {
     }
 
     pub async fn query_task_by_id(&self, id: &str) -> Result<Task, io::Error> {
-        let mut task: Option<Task> = self
-            .context
-            .db
-            .select(("task", id))
-            .await
-            .unwrap_or_else(|_| None);
+        let mut task: Task = select_resourse(&self.context, id, "task").await?;
 
         let mut response = self
             .context
@@ -47,11 +42,9 @@ impl TaskRepository {
         let status_pool_user: Option<StatusPool> = response.take((1, "status_pool")).unwrap();
         let status_pool_project: Option<StatusPool> = response.take((2, "status_pool")).unwrap();
 
-        if let Some(task) = task.as_mut() {
-            task.assignees = Some(unwrap_things(assignees));
-            task.status_pool = status_pool_project.or(status_pool_user);
-        }
-        task.ok_or(io::Error::new(io::ErrorKind::NotFound, "Task not found"))
+        task.assignees = Some(unwrap_things(assignees));
+        task.status_pool = status_pool_project.or(status_pool_user);
+        Ok(task)
     }
 
     pub async fn insert_task_for_task_list(
@@ -59,28 +52,16 @@ impl TaskRepository {
         task: &Task,
         task_list_id: &str,
     ) -> Result<Task, io::Error> {
-        let result: Option<Task> = self
-            .context
-            .db
-            .create("task")
-            .content(task)
-            .await
-            .map_err(|e| get_io_error(e))?
-            .pop();
-        if let Some(task) = result {
-            let _ = self
-                .context
-                .db
-                .query(format!(
-                    "relate task_list:{task_list_id} -> have -> task:{}",
-                    get_str_id(&task.id)
-                ))
-                .await
-                .map_err(|e| get_io_error(e))?;
-            Ok(task)
-        } else {
-            Err(io::Error::new(io::ErrorKind::NotFound, "Task insert fail"))
-        }
+        let task = create_resource(&self.context, task, "task").await?;
+        let _ = exec_query(
+            &self.context,
+            format!(
+                "relate task_list:{task_list_id} -> have -> task:{}",
+                get_str_id(&task.id)
+            ),
+        )
+        .await?;
+        Ok(task)
     }
 
     pub async fn insert_extask_list_for_user(
@@ -88,36 +69,23 @@ impl TaskRepository {
         name: &str,
         user_id: &str,
     ) -> Result<TaskList, io::Error> {
-        let result: Option<TaskList> = self
+        let task_list = create_resource(&self.context, &TaskList::new_with_id(
+            name.to_string(),
+            user_id,
+            "task_list",
+        ), "task_list").await?;
+        
+        let _ = self
             .context
             .db
-            .create("task_list")
-            .content(&TaskList::new_with_id(
-                name.to_string(),
+            .query(format!(
+                "relate user:{} -> own -> task_list:{}",
                 user_id,
-                "task_list",
+                get_str_id(&task_list.id)
             ))
             .await
-            .map_err(|e| get_io_error(e))?
-            .pop();
-        if let Some(task_list) = result {
-            let _ = self
-                .context
-                .db
-                .query(format!(
-                    "relate user:{} -> own -> task_list:{}",
-                    user_id,
-                    get_str_id(&task_list.id)
-                ))
-                .await
-                .map_err(|e| get_io_error(e))?;
-            Ok(task_list)
-        } else {
-            Err(io::Error::new(
-                io::ErrorKind::NotFound,
-                "TaskList insert fail",
-            ))
-        }
+            .map_err(|e| get_io_error(e))?;
+        Ok(task_list)
     }
 
     pub async fn insert_task_list_for_user(

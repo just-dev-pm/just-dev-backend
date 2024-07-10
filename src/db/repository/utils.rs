@@ -26,4 +26,49 @@ pub fn unwrap_things(things: Vec<Thing>) -> Vec<DbModelId> {
 }
 
 
+use surrealdb::Response;
+
+use crate::db::db_context::DbContext;
+
+
+pub async fn create_resource<T>(
+    context: &DbContext,
+    content: &T,
+    table: &str,
+) -> Result<T, io::Error>
+where
+    T: serde::Serialize + serde::de::DeserializeOwned,
+{
+    let result: Option<T> = context
+        .db
+        .create(table)
+        .content(content)
+        .await
+        .map_err(|e| get_io_error(e))?
+        .pop();
+    result.ok_or(io::Error::new(
+        io::ErrorKind::NotFound,
+        "Resource insert fail",
+    ))
+}
+
+pub async fn select_resourse<T>(context: &DbContext, id: &str, table: &str) -> Result<T, io::Error>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let result: Option<T> = context
+        .db
+        .select((table, id))
+        .await
+        .map_err(|e| get_io_error(e))?;
+    result.ok_or(io::Error::new(
+        io::ErrorKind::NotFound,
+        "Resource not found",
+    ))
+}
+
+pub async fn exec_query(context: &DbContext, query: String) -> Result<Response, io::Error> {
+    context.db.query(query).await.map_err(get_io_error)
+}
+
 

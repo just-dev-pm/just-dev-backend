@@ -2,14 +2,13 @@ use std::io;
 
 use crate::db::{db_context::DbContext, model::agenda::{Agenda, Event}};
 
-use super::repo::Repository;
+use crate::db::repository::utils::*;
 
 #[derive(Clone)]
 pub struct AgendaRepository {
     pub context: DbContext,
 }
 
-impl Repository for AgendaRepository {}
 
 impl AgendaRepository {
     pub async fn new() -> Self {
@@ -18,7 +17,7 @@ impl AgendaRepository {
         }
     }
     pub async fn query_agenda_by_id(&self, id: &str) -> Result<Agenda, io::Error> {
-        self.select_resourse(&self.context, id, "agenda").await
+        select_resourse(&self.context, id, "agenda").await
     }
 
     pub async fn insert_agenda_for_user(
@@ -28,10 +27,9 @@ impl AgendaRepository {
     ) -> Result<Agenda, io::Error> {
         let agenda = Agenda::new(name.to_owned());
 
-        let agenda = self
-            .create_resource(&self.context, agenda, "agenda")
+        let agenda = create_resource(&self.context, &agenda, "agenda")
             .await?;
-        let _ = self.exec_query(
+        let _ = exec_query(
             &self.context,
             format!(
                 "relate user:{user_id} -> own -> agenda:{}",
@@ -47,11 +45,9 @@ impl AgendaRepository {
         project_id: &str,
     ) -> Result<Agenda, io::Error> {
         let agenda = Agenda::new(name.to_owned());
-        let agenda = self
-            .create_resource(&self.context, agenda, "agenda")
+        let agenda = create_resource(&self.context, &agenda, "agenda")
             .await?;
-        let _ = self
-            .exec_query(
+        let _ = exec_query(
                 &self.context,
                 format!(
                     "relate project:{project_id} -> own -> agenda:{}",
@@ -62,10 +58,9 @@ impl AgendaRepository {
         Ok(agenda)
     }
 
-    pub async fn insert_event_for_agenda(&self, event: Event, agenda_id: &str) -> Result<Event, io::Error> {
-        let event = self.create_resource(&self.context, event, "event").await?;
-        let _ = self
-            .exec_query(
+    pub async fn insert_event_for_agenda(&self, event: &Event, agenda_id: &str) -> Result<Event, io::Error> {
+        let event = create_resource(&self.context, event, "event").await?;
+        let _ = exec_query(
                 &self.context,
                 format!(
                     "relate agenda:{agenda_id} -> plan -> event:{}",

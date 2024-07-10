@@ -4,14 +4,12 @@ use crate::db::model::project::Project;
 use crate::db::model::user::User;
 use std::io;
 
-use super::repo::Repository;
-
+use crate::db::repository::utils::*;
 #[derive(Clone)]
 pub struct ProjectRepository {
     context: DbContext,
 }
 
-impl Repository for ProjectRepository {}
 
 impl ProjectRepository {
     pub async fn new() -> ProjectRepository {
@@ -34,7 +32,7 @@ impl ProjectRepository {
     }
 
     pub async fn insert_project(&self, project: &Project) -> Result<Project, io::Error> {
-        self.create_resource(&self.context, project.to_owned(), "project").await
+        create_resource(&self.context, project, "project").await
     }
 
     pub async fn update_project(&self, project: &Project, project_id: &str) -> Result<Project, io::Error> {
