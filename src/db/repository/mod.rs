@@ -11,20 +11,15 @@ pub mod utils;
 mod test_user {
 
     use axum_login::AuthUser;
+    use surrealdb::Notification;
 
     use crate::{
         db::{
             model::{
-                agenda::Event, draft::DraftPayload, project::Project, status::StatusPool,
-                task::Task, user::User,
+                agenda::Event, draft::DraftPayload, notification::NotificationSource, project::Project, status::StatusPool, task::Task, user::User
             },
             repository::{
-                agenda::AgendaRepository,
-                draft::DraftRepository,
-                project::ProjectRepository,
-                task::{Entity, TaskRepository},
-                user::UserRepository,
-                utils::unwrap_thing,
+                agenda::AgendaRepository, draft::DraftRepository, notification::NotificationRepository, project::ProjectRepository, task::{Entity, TaskRepository}, user::UserRepository, utils::unwrap_thing
             },
         },
         usecase::user::insert_user,
@@ -303,5 +298,40 @@ mod test_user {
         let link_id = unwrap_thing(task_link.id.clone().unwrap());
         let task_link = repo.delete_task_link_by_id(&link_id).await.unwrap();
         assert_eq!(task_link.kind, "auto");
+    }
+
+    #[tokio::test]
+    async fn test_update_task_by_id() {
+        let repo = TaskRepository::new().await;
+        let task = repo.update_task_by_id("xiwen", &Task::new("xiwen".to_string())).await.unwrap();
+        assert_eq!(task.name, "xiwen");
+    }
+
+    #[tokio::test]
+    async fn test_insert_notif() {
+        let repo = NotificationRepository::new().await;
+        let result = repo.insert_notif("xiwen".to_owned(), "xiwen".to_owned(), "xiwen", "task", "xiwen").await.unwrap();
+        assert_eq!(result.title, "xiwen");
+    }
+
+    #[tokio::test]
+    async fn test_query_notif_by_id() {
+        let repo = NotificationRepository::new().await;
+        let (notif, _) = repo.query_notif_by_id("xiwen").await.unwrap();
+        assert_eq!(notif.title, "xiwen");
+    }
+
+    #[tokio::test]
+    async fn test_handle_notif(){
+        let repo = NotificationRepository::new().await;
+        let result = repo.handle_notif_by_id("xiwen").await.unwrap();
+        assert_eq!(result.handled, true);
+    }
+
+    #[tokio::test]
+    async fn test_query_notif_by_user_id() {
+        let repo = UserRepository::new().await;
+        let result = repo.query_notif_by_user_id("xiwen").await.unwrap();
+        assert!(result.contains(&"qqvxafo5l6vkp7etig3b".to_owned()));
     }
 }

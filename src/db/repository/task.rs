@@ -220,4 +220,9 @@ impl TaskRepository {
         let task_link: Option<TaskLink> = self.context.db.delete(("link", task_link_id)).await.map_err(get_io_error)?;
         task_link.ok_or(custom_io_error("Delete link fail"))
     }
+
+    pub async fn update_task_by_id(&self, task_id: &str, task: &Task) -> Result<Task, io::Error> {
+        let task = update_resource(&self.context, task_id, task, "task").await?;
+        Ok(task)
+    }
 }

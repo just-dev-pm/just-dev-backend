@@ -136,4 +136,20 @@ impl UserRepository {
 
         Ok(unwrap_things(task_lists))
     }
+
+    pub async fn query_notif_by_user_id(&self, user_id: &str) -> Result<Vec<DbModelId>, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!(
+                "SELECT ->notified_by->notification as notifs FROM user where id == user:{}",
+                user_id
+            ),
+        )
+        .await?;
+        let notifs = response
+            .take::<Option<Vec<Thing>>>("notifs")
+            .map_err(get_io_error)?
+            .unwrap_or_default();
+        Ok(unwrap_things(notifs))
+    }
 }

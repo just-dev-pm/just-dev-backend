@@ -1,6 +1,14 @@
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::Thing;
 
+use crate::db::repository::utils::DbModelId;
+
+
+pub enum NotificationSource {
+    Task(String),
+    Event(String),
+    Draft(String),
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Notification {
@@ -8,4 +16,15 @@ pub struct Notification {
     pub title: String,
     pub content: String,
     pub handled: bool,
+}
+
+impl Notification {
+    pub fn new(title: String, content: String) -> Self {
+        Notification {
+            id: None,
+            title,
+            content,
+            handled: false,
+        }
+    }
 }
