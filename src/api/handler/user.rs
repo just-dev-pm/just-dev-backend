@@ -104,11 +104,15 @@ pub async fn patch_user_info(
         status_pool: req.status_pool.or(user.status_pool),
     };
 
+    let db_user = user_api_to_db(user.clone(), &password);
+
+    dbg!(&db_user);
+
     let returned_user = state
         .lock()
         .await
         .user_repo
-        .update_user(&user.id.clone(), &user_api_to_db(user, &password))
+        .update_user(&user.id.clone(), &db_user)
         .await;
 
     let user = match returned_user {

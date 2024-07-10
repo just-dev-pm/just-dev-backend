@@ -257,3 +257,78 @@ pub async fn create_project(
         Some(project) => (StatusCode::OK, Json(CreateProjectResponse { project })).into_response(),
     }
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PatchProjectRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_pool: Option<StatusPool>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PatchProjectResponse {
+    #[serde(flatten)]
+    pub project: Project,
+}
+
+pub async fn patch_project(
+    auth_session: AuthSession<AuthBackend>,
+    State(state): State<Arc<Mutex<AppState>>>,
+    Path(project_id): Path<String>,
+    Json(req): Json<PatchProjectRequest>,
+) -> impl IntoResponse {
+    let state = state.lock().await;
+    if let Some(value) =
+        authorize_against_project_id(auth_session, &state.project_repo, &project_id).await
+    {
+        return value;
+    }
+
+    let original_db_prject = state.project_repo.query_project_by_id(&project_id).await;
+
+    let original_db_project = match original_db_prject {
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(p) => p,
+    };
+
+    let original_api_project = project_db_to_api(original_db_project);
+
+    let original_api_project = match original_api_project {
+        None => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Some(p) => p,
+    };
+
+    let new_api_project = Project {
+        id: original_api_project.id,
+        name: req.name.unwrap_or(original_api_project.name),
+        description: req.description.unwrap_or(original_api_project.description),
+        avatar: req.avatar.or(original_api_project.avatar),
+        status_pool: req.status_pool.or(original_api_project.status_pool),
+    };
+
+    let new_db_project = project_api_to_db(new_api_project);
+
+    dbg!(&new_db_project);
+
+    let updated_db_project = state
+        .project_repo
+        .update_project(&new_db_project, &project_id)
+        .await;
+
+    let updated_db_project = match updated_db_project {
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(p) => p,
+    };
+
+    let updated_api_project = project_db_to_api(updated_db_project);
+
+    match updated_api_project {
+        None => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Some(p) => (StatusCode::OK, Json(PatchProjectResponse { project: p })).into_response(),
+    }
+}

@@ -23,7 +23,10 @@ use crate::{
 
 use super::handler::{
     auth::{login, logout, signup},
-    project::{create_project, get_project_info, get_projects_for_user, get_users_for_project},
+    project::{
+        create_project, get_project_info, get_projects_for_user, get_users_for_project,
+        patch_project,
+    },
     user::{get_user_info, patch_user_info},
 };
 
@@ -80,10 +83,15 @@ impl App {
                     "/api/projects/:project_id/users",
                     get(get_users_for_project),
                 )
-                .route("/api/projects/:project_id", get(get_project_info))
+                .route(
+                    "/api/projects/:project_id",
+                    get(get_project_info).patch(patch_project),
+                )
                 .route("/api/users/:user_id/projects", get(get_projects_for_user))
-                .route("/api/users/:user_id", patch(patch_user_info))
-                .route("/api/users/:user_id", get(get_user_info))
+                .route(
+                    "/api/users/:user_id",
+                    get(get_user_info).patch(patch_user_info),
+                )
                 .route_layer(login_required!(AuthBackend, login_url = "/login"))
                 .route("/api/auth/login", post(login))
                 .route("/api/auth/signup", post(signup))
