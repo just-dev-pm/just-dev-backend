@@ -61,6 +61,26 @@ pub async fn authorize_against_project_id(
     }
 }
 
+pub async fn authorize_admin_against_project_id(
+    auth_session: &AuthSession<AuthBackend>,
+    project_repo: &ProjectRepository,
+    project_id: &String,
+) -> Option<axum::http::Response<axum::body::Body>> {
+    let user_id = match auth_session.user.clone() {
+        None => return Some(StatusCode::UNAUTHORIZED.into_response()),
+        Some(user) => user.id(),
+    };
+    let admin = project_repo.query_admin_by_id(project_id).await;
+
+    match admin {
+        Err(_) => Some(StatusCode::UNAUTHORIZED.into_response()),
+        Ok(admin) => match admin.id().eq(&user_id) {
+            false => Some(StatusCode::UNAUTHORIZED.into_response()),
+            true => None,
+        },
+    }
+}
+
 pub fn user_db_to_api(user: crate::db::model::user::User) -> Option<crate::api::model::user::User> {
     if let Some(id) = user.id {
         let email = if user.email.is_empty() {

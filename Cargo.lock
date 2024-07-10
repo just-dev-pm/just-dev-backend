@@ -1492,6 +1492,7 @@ dependencies = [
  "axum-login",
  "base64-lib",
  "chrono",
+ "nanoid",
  "serde",
  "serde_json",
  "surrealdb",

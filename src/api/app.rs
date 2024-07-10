@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     http::{header, HeaderValue, Method},
-    routing::{get, patch, post},
+    routing::{get, post},
     Router,
 };
 use axum_login::{
@@ -18,14 +18,14 @@ use tower_http::cors::CorsLayer;
 
 use crate::{
     db::repository::{project::ProjectRepository, task::TaskRepository, user::UserRepository},
-    usecase::util::auth_backend::AuthBackend,
+    usecase::{invitation_token::InvitationTokenRepository, util::auth_backend::AuthBackend},
 };
 
 use super::handler::{
     auth::{login, logout, signup},
     project::{
-        create_project, get_project_info, get_projects_for_user, get_users_for_project,
-        patch_project,
+        create_project, gen_invitation_token, get_project_info, get_projects_for_user,
+        get_users_for_project, patch_project,
     },
     user::{get_user_info, patch_user_info},
 };
@@ -35,6 +35,7 @@ pub struct AppState {
     pub user_repo: UserRepository,
     pub task_repo: TaskRepository,
     pub project_repo: ProjectRepository,
+    pub invitation_token_repo: Arc<Mutex<InvitationTokenRepository>>,
 }
 
 pub struct App {
@@ -52,6 +53,7 @@ impl App {
             user_repo: UserRepository::new().await,
             task_repo: TaskRepository::new().await,
             project_repo: ProjectRepository::new().await,
+            invitation_token_repo: Arc::new(Mutex::new(InvitationTokenRepository::default())),
         }));
 
         let session_store = MemoryStore::default();
@@ -78,6 +80,7 @@ impl App {
 
         App {
             router: Router::new()
+                .route("/api/invitation/generate", post(gen_invitation_token))
                 .route("/api/projects", post(create_project))
                 .route(
                     "/api/projects/:project_id/users",

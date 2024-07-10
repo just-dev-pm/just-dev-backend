@@ -1,10 +1,16 @@
-pub mod util;
+pub mod invitation_token;
 pub mod user;
-
+pub mod util;
 
 #[cfg(test)]
 mod test {
-    use crate::{db::{model::{status::StatusPool, user::User}, repository::{task::TaskRepository, user::UserRepository}}, usecase::user::insert_user};
+    use crate::{
+        db::{
+            model::{status::StatusPool, user::User},
+            repository::{task::TaskRepository, user::UserRepository},
+        },
+        usecase::user::insert_user,
+    };
 
     fn create_user() -> User {
         User {
@@ -22,7 +28,9 @@ mod test {
         let user_repo = UserRepository::new().await;
         let task_repo = TaskRepository::new().await;
 
-        let user = insert_user(&user_repo, &task_repo, &create_user()).await.unwrap();
+        let user = insert_user(&user_repo, &task_repo, &create_user())
+            .await
+            .unwrap();
         assert_eq!(user.username, "test");
-    } 
+    }
 }

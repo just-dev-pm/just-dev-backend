@@ -7,6 +7,7 @@ use axum::{
     Json,
 };
 use axum_login::AuthSession;
+use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
@@ -15,12 +16,12 @@ use crate::{
         app::AppState,
         model::{project::Project, status::StatusPool, user::User},
     },
-    usecase::util::auth_backend::AuthBackend,
+    usecase::{invitation_token::InvitationInfo, util::auth_backend::AuthBackend},
 };
 
 use super::util::{
-    authorize_against_project_id, authorize_against_user_id, project_api_to_db, project_db_to_api,
-    user_db_to_api,
+    authorize_admin_against_project_id, authorize_against_project_id, authorize_against_user_id,
+    project_api_to_db, project_db_to_api, user_db_to_api,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -331,4 +332,54 @@ pub async fn patch_project(
         None => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         Some(p) => (StatusCode::OK, Json(PatchProjectResponse { project: p })).into_response(),
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GenInvitationTokenRequest {
+    pub invitor_id: String,
+    pub invitee_id: String,
+    pub project_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GenInvitationTokenResponse {
+    pub invitation_token: String,
+}
+
+pub async fn gen_invitation_token(
+    auth_session: AuthSession<AuthBackend>,
+    State(state): State<Arc<Mutex<AppState>>>,
+    Json(req): Json<GenInvitationTokenRequest>,
+) -> impl IntoResponse {
+    let state = state.lock().await;
+    let mut invitation_token_repo = state.invitation_token_repo.lock().await;
+    let project_repo = &state.project_repo;
+
+    if let Some(value) =
+        authorize_admin_against_project_id(&auth_session, project_repo, &req.project_id).await
+    {
+        return value;
+    }
+    if let Some(value) = authorize_against_user_id(auth_session, &req.invitor_id) {
+        return value;
+    }
+
+    let invitation_token = nanoid!();
+
+    invitation_token_repo.tokens.insert(
+        invitation_token.clone(),
+        InvitationInfo {
+            inviter: req.invitor_id,
+            invitee: req.invitee_id,
+            project: req.project_id,
+        },
+    );
+
+    dbg!(&invitation_token_repo.tokens);
+
+    (
+        StatusCode::OK,
+        Json(GenInvitationTokenResponse { invitation_token }),
+    )
+        .into_response()
 }
