@@ -16,7 +16,7 @@ mod test_user {
 
     use crate::{
         db::{
-            model::{draft::DraftPayload, project::Project, status::StatusPool, task::Task, user::User},
+            model::{agenda::Event, draft::DraftPayload, project::Project, status::StatusPool, task::Task, user::User},
             repository::{
                 agenda::AgendaRepository, draft::DraftRepository, project::ProjectRepository, task::TaskRepository, user::UserRepository
             },
@@ -27,7 +27,7 @@ mod test_user {
     fn create_user() -> User {
         User {
             id: None,
-            username: "xiwen".to_string(),
+            username: "test".to_string(),
             avatar: "test".to_string(),
             email: "test".to_string(),
             password: "".to_string(),
@@ -56,14 +56,16 @@ mod test_user {
         let user = insert_user(&user_repo, &task_repo, &create_user())
             .await
             .unwrap();
-        assert_eq!(user.username, "xiwen");
+        assert_eq!(user.username, "test");
     }
 
     #[tokio::test]
     async fn test_update_user() {
         let repository = UserRepository::new().await;
-        let user = repository.update_user("dc", &create_user()).await.unwrap();
-        assert_eq!(user.username, "xiwen");
+        let mut user = repository.update_user("dc", &create_user()).await.unwrap();
+        assert_eq!(user.username, "test");
+        user.username = "dc".to_owned();
+        repository.update_user("dc", &user).await.unwrap();
     }
     #[tokio::test]
     async fn test_query_project_by_id() {
@@ -188,6 +190,28 @@ mod test_user {
         let repo = AgendaRepository::new().await;
         let result = repo.query_agenda_by_id("xiwen").await.unwrap();
         assert_eq!(result.name, "xiwen");
+    }
+
+    #[tokio::test]
+    async fn test_insert_agenda_for_user() {
+        let repo = AgendaRepository::new().await;
+        let result = repo.insert_agenda_for_user("xiwen", "test").await.unwrap();
+        assert_eq!(result.name, "test");
+    }
+
+    #[tokio::test] 
+    async fn test_insert_agenda_for_project() {
+        let repo = AgendaRepository::new().await;
+        let result = repo.insert_agenda_for_project("test", "xiwen").await.unwrap();
+        assert_eq!(result.name, "test");
+    }
+
+    #[tokio::test]
+    async fn test_insert_event_for_agenda() {
+        let repo = AgendaRepository::new().await;
+        let event = Event::new("xiwen".into(), "test".into());
+        let result = repo.insert_event_for_agenda(event, "xiwen").await.unwrap();
+        assert_eq!(result.description, "test")
     }
 
 

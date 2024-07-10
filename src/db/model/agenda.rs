@@ -23,8 +23,20 @@ impl Agenda {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Event {
     pub id: Option<Thing>,
-    name: String,
-    description: String,
-    start_time: Option<Datetime>,
-    end_time: Option<Datetime>,
+    pub name: String,
+    pub description: String,
+    pub start_time: Datetime,
+    pub end_time: Datetime,
+}
+
+impl Event {
+    pub fn new(name: String, description: String) -> Self {
+        Event {
+            id: None,
+            name,
+            description,
+            start_time: Datetime::default(),
+            end_time: Datetime::default(),
+        }
+    }
 }
