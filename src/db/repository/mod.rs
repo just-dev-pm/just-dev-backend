@@ -194,8 +194,8 @@ mod test_user {
     #[tokio::test]
     async fn test_insert_agenda_for_user() {
         let repo = AgendaRepository::new().await;
-        let result = repo.insert_agenda_for_user("xiwen", "test").await.unwrap();
-        assert_eq!(result.name, "test");
+        let result = repo.insert_agenda_for_user("xiwen", "xiwen").await.unwrap();
+        assert_eq!(result.name, "xiwen");
     }
 
     #[tokio::test] 
@@ -224,15 +224,17 @@ mod test_user {
     async fn test_user_query_agenda_by_id() {
         let repo = UserRepository::new().await;
         let result = repo.query_agenda_by_id("xiwen").await.unwrap();
-        assert_eq!(result[0], "xiwen");
+        assert!(result.contains(&"xiwen".to_string()));
+        assert!(result.contains(&"odm38nhhrt6qacstkrc0".to_string()));
     }
 
     #[tokio::test]
     async fn test_user_query_draft_by_id() {
         let repo = UserRepository::new().await;
         let result = repo.query_draft_by_id("xiwen").await.unwrap();
-        assert_eq!(result[0], "xiwen");
+        assert!(result.contains(&"xiwen".to_string()));
     }
+
         
 }
 

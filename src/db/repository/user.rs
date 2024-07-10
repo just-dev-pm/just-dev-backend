@@ -5,11 +5,17 @@ use surrealdb::sql::Thing;
 use crate::db::{
     db_context::DbContext,
     model::{
-        agenda::Agenda, draft::{Draft, DraftPayload}, project::Project, task::TaskList, user::User
+        agenda::Agenda,
+        draft::{Draft, DraftPayload},
+        project::Project,
+        task::TaskList,
+        user::User,
     },
 };
 
-use super::utils::{exec_query, get_io_error, unwrap_thing, unwrap_things, DbModelId};
+use super::utils::{
+    exec_double_query, exec_query, get_io_error, unwrap_thing, unwrap_things, DbModelId,
+};
 
 #[derive(Clone, Debug)]
 pub struct UserRepository {
@@ -76,38 +82,58 @@ impl UserRepository {
     }
 
     pub async fn query_draft_by_id(&self, user_id: &str) -> Result<Vec<DbModelId>, io::Error> {
-        let mut response = exec_query(
+        let mut response = exec_double_query(
             &self.context,
             format!("select ->own->draft as drafts from user where id == user:{user_id}"),
+            format!("select ->join->project->own->drafts as drafts from user where id == user:{user_id}")
         )
         .await?;
-        let drafts: Option<Vec<Thing>> = response.take((0, "drafts")).map_err(get_io_error)?;
+        let mut drafts = response
+            .take::<Option<Vec<Thing>>>((0, "drafts"))
+            .map_err(get_io_error)?
+            .unwrap_or_default();
+        drafts.extend(
+            response
+                .take::<Option<Vec<Thing>>>((1, "drafts"))
+                .map_err(get_io_error)?
+                .unwrap_or_default(),
+        );
 
-        Ok(unwrap_things(drafts.unwrap_or_default()))
+        Ok(unwrap_things(drafts))
     }
 
     pub async fn query_agenda_by_id(&self, user_id: &str) -> Result<Vec<DbModelId>, io::Error> {
-        let mut response = exec_query(
+        let mut response = exec_double_query(
             &self.context,
             format!("select ->own->agenda as agendas from user where id == user:{user_id}"),
+            format!("select ->join->project->own->agenda as agendas from user where id == user:{user_id}")
         )
         .await?;
-        let agendas: Option<Vec<Thing>> = response.take((0, "agendas")).map_err(get_io_error)?;
+        let mut agendas = response
+            .take::<Option<Vec<Thing>>>((0, "agendas"))
+            .map_err(get_io_error)?
+            .unwrap_or_default();
+        agendas.extend(
+            response
+                .take::<Option<Vec<Thing>>>((1, "agendas"))
+                .map_err(get_io_error)?
+                .unwrap_or_default(),
+        );
 
-        Ok(unwrap_things(agendas.unwrap_or_default()))
+        Ok(unwrap_things(agendas))
     }
 
-    pub async fn query_task_list_by_id(
-        &self,
-        user_id: &str,
-    ) -> Result<Vec<DbModelId>, io::Error> {
-        let mut response = exec_query(
+    pub async fn query_task_list_by_id(&self, user_id: &str) -> Result<Vec<DbModelId>, io::Error> {
+        let mut response = exec_double_query(
             &self.context,
             format!("select ->own->task_list as task_lists from user where id == user:{user_id}"),
+            format!("select ->join->project->own->agenda as agendas from user where id == user:{user_id}")
         )
         .await?;
-        let task_lists: Option<Vec<Thing>> = response.take((0, "task_lists")).map_err(get_io_error)?;
+        let mut task_lists =
+            response.take::<Option<Vec<Thing>>>((0, "task_lists")).map_err(get_io_error)?.unwrap_or_default();
+        task_lists.extend(response.take::<Option<Vec<Thing>>>((1, "task_list")).map_err(get_io_error)?.unwrap_or_default());
 
-        Ok(unwrap_things(task_lists.unwrap_or_default()))
+        Ok(unwrap_things(task_lists))
     }
 }

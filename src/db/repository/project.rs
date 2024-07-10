@@ -113,7 +113,7 @@ impl ProjectRepository {
     pub async fn query_agenda_by_id(&self, project_id: &str) -> Result<Vec<DbModelId>, io::Error> {
         let mut response = exec_query(
             &self.context,
-            format!("select ->own->agenda as agendas from user where id == user:{project_id}"),
+            format!("select ->own->agenda as agendas from user where id == project:{project_id}"),
         )
         .await?;
         let agendas: Option<Vec<Thing>> = response.take((0, "agendas")).map_err(get_io_error)?;
@@ -124,11 +124,22 @@ impl ProjectRepository {
     pub async fn query_task_list_by_id(&self, project_id: &str) -> Result<Vec<DbModelId>, io::Error> {
         let mut response = exec_query(
             &self.context,
-            format!("select ->own->agenda as agendas from user where id == user:{project_id}"),
+            format!("select ->own->task_list as task_lists from user where id == project:{project_id}"),
         )
         .await?;
-        let task_lists: Option<Vec<Thing>> = response.take((0, "agendas")).map_err(get_io_error)?;
+        let task_lists: Option<Vec<Thing>> = response.take((0, "task_lists")).map_err(get_io_error)?;
 
         Ok(unwrap_things(task_lists.unwrap_or_default()))
+    }
+
+    pub async fn query_draft_by_id(&self, project_id: &str) -> Result<Vec<DbModelId>, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!("select ->own->draft as drafts from user where id == project:{project_id}"),
+        )
+            .await?;
+        let agendas: Option<Vec<Thing>> = response.take((0, "drafts")).map_err(get_io_error)?;
+
+        Ok(unwrap_things(agendas.unwrap_or_default()))
     }
 }

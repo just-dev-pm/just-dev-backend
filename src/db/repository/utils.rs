@@ -1,5 +1,5 @@
 use std::{error::Error, io};
-
+use std::task::Context;
 use surrealdb::sql::Thing;
 
 pub type DbModelId = String;
@@ -71,4 +71,7 @@ pub async fn exec_query(context: &DbContext, query: String) -> Result<Response, 
     context.db.query(query).await.map_err(get_io_error)
 }
 
+pub async fn exec_double_query(context: &DbContext, query1: String, query2: String) -> Result<Response, io::Error> {
+    context.db.query(query1).query(query2).await.map_err(get_io_error)
+}
 
