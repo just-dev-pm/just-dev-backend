@@ -1,4 +1,3 @@
-use serde_json::json;
 
 use crate::db::db_context::DbContext;
 use crate::db::model::project::Project;
@@ -45,11 +44,11 @@ impl ProjectRepository {
         ))
     }
 
-    pub async fn update_project(&self, project: &Project) -> Result<Project, io::Error> {
+    pub async fn update_project(&self, project: &Project, project_id: &str) -> Result<Project, io::Error> {
         let result: Option<Project> = self
             .context
             .db
-            .update(("project", project.id.as_ref().unwrap().to_string()))
+            .update(("project", project_id))
             .content(project)
             .await
             .unwrap();

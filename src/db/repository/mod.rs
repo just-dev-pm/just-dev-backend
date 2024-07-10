@@ -1,5 +1,5 @@
 pub mod agenda;
-// pub mod draft;
+pub mod draft;
 pub mod notification;
 pub mod project;
 pub mod requirement;
@@ -11,10 +11,11 @@ pub mod utils;
 mod test_user {
 
     use axum_login::AuthUser;
+    use surrealdb::sql::{Id, Thing};
 
     use crate::{
         db::{
-            model::{project::Project, status::StatusPool, task::Task, user::User},
+            model::{draft::DraftPayload, project::Project, status::StatusPool, task::Task, user::User},
             repository::{
                 draft::DraftRepository, project::ProjectRepository, task::TaskRepository,
                 user::UserRepository,
@@ -151,4 +152,26 @@ mod test_user {
         let result = repository.insert_draft("xiwen").await.unwrap();
         assert_eq!(result.name, "xiwen");
     }
+
+    #[tokio::test]
+    async fn test_update_draft() {
+        let repo = ProjectRepository::new().await;
+        let project = Project {
+            id: None,
+            name: "test".into(),
+            avatar: None,
+            status_pool: StatusPool::default(),
+        };
+        let result = repo.update_project(&project, "xiwen").await.unwrap();
+        assert_eq!(result.name, "test");
+        
+    }
+
+    // #[tokio::test]
+    // async fn test_update_draft() {
+    //     let repo = DraftRepository::new().await;
+    //     let dp = DraftPayload::new("xiwen".into(), "content".into());
+    // }
 }
+
+

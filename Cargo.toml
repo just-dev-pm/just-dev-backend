@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 axum = { version = "0.7.5", features = ["ws"] }
 axum-login = "0.15.3"
+base64-lib = "0.2.2"
 chrono = { version = "0.4.38", features = ["serde"] }
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.120"
