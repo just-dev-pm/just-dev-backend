@@ -55,7 +55,7 @@ impl AgendaRepository {
                 &self.context,
                 format!(
                     "relate project:{project_id} -> own -> agenda:{}",
-                    agenda.id.as_ref().unwrap()
+                    agenda.id.as_ref().unwrap().id.to_string()
                 ),
             )
             .await?;
