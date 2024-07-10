@@ -31,6 +31,8 @@ impl DraftRepository {
         DraftPayload::from(draft.ok_or(io::Error::new(io::ErrorKind::NotFound, "Draft not found"))?)
     }
 
+    
+
     pub async fn insert_draft_for_user(&self, name: &str, user_id: &str) -> Result<DraftPayload, io::Error> {
         let draft = Draft::new(name.to_string(), &vec![]);
         let result: Option<Draft> = self

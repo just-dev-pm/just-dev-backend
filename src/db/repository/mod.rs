@@ -213,9 +213,26 @@ mod test_user {
         assert_eq!(result.description, "test")
     }
 
+    #[tokio::test]
+    async fn test_query_task_by_id() {
+        let repo = TaskRepository::new().await;
+        let result = repo.query_task_by_id("xiwen").await.unwrap();
+        assert_eq!(result.name, "xiwen");
+    }
 
+    #[tokio::test]
+    async fn test_user_query_agenda_by_id() {
+        let repo = UserRepository::new().await;
+        let result = repo.query_agenda_by_id("xiwen").await.unwrap();
+        assert_eq!(result[0], "xiwen");
+    }
 
-
+    #[tokio::test]
+    async fn test_user_query_draft_by_id() {
+        let repo = UserRepository::new().await;
+        let result = repo.query_draft_by_id("xiwen").await.unwrap();
+        assert_eq!(result[0], "xiwen");
+    }
         
 }
 

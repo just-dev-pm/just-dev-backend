@@ -70,4 +70,5 @@ impl AgendaRepository {
             .await?;
         Ok(event)
     }
+
 }

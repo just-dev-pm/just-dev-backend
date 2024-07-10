@@ -1,6 +1,10 @@
 
+use surrealdb::sql::Thing;
+
 use crate::db::db_context::DbContext;
+use crate::db::model::agenda::Agenda;
 use crate::db::model::project::Project;
+use crate::db::model::task::TaskList;
 use crate::db::model::user::User;
 use std::io;
 
@@ -104,5 +108,27 @@ impl ProjectRepository {
             .unwrap();
         let members: Vec<User> = response.take((0, "in")).unwrap(); //TODO: add error handling
         Ok(members)
+    }
+
+    pub async fn query_agenda_by_id(&self, project_id: &str) -> Result<Vec<DbModelId>, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!("select ->own->agenda as agendas from user where id == user:{project_id}"),
+        )
+        .await?;
+        let agendas: Option<Vec<Thing>> = response.take((0, "agendas")).map_err(get_io_error)?;
+
+        Ok(unwrap_things(agendas.unwrap_or_default()))
+    }
+
+    pub async fn query_task_list_by_id(&self, project_id: &str) -> Result<Vec<DbModelId>, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!("select ->own->agenda as agendas from user where id == user:{project_id}"),
+        )
+        .await?;
+        let task_lists: Option<Vec<Thing>> = response.take((0, "agendas")).map_err(get_io_error)?;
+
+        Ok(unwrap_things(task_lists.unwrap_or_default()))
     }
 }

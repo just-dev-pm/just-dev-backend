@@ -1,11 +1,15 @@
 use std::io;
 
+use surrealdb::sql::Thing;
+
 use crate::db::{
     db_context::DbContext,
-    model::{project::Project, user::User},
+    model::{
+        agenda::Agenda, draft::{Draft, DraftPayload}, project::Project, task::TaskList, user::User
+    },
 };
 
-use super::utils::get_io_error;
+use super::utils::{exec_query, get_io_error, unwrap_thing, unwrap_things, DbModelId};
 
 #[derive(Clone, Debug)]
 pub struct UserRepository {
@@ -53,7 +57,10 @@ impl UserRepository {
         result.ok_or(io::Error::new(io::ErrorKind::NotFound, "User update fail"))
     }
 
-    pub async fn query_project_join_by_id(&self, user_id: &str) -> Result<(Vec<Project>, Vec<Project>), io::Error> {
+    pub async fn query_project_join_by_id(
+        &self,
+        user_id: &str,
+    ) -> Result<(Vec<Project>, Vec<Project>), io::Error> {
         let mut response = self
             .context
             .db
@@ -66,5 +73,41 @@ impl UserRepository {
         let admin_projects: Vec<Project> = response.take((0, "project")).map_err(get_io_error)?;
         let member_projects: Vec<Project> = response.take((1, "project")).map_err(get_io_error)?;
         Ok((admin_projects, member_projects))
+    }
+
+    pub async fn query_draft_by_id(&self, user_id: &str) -> Result<Vec<DbModelId>, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!("select ->own->draft as drafts from user where id == user:{user_id}"),
+        )
+        .await?;
+        let drafts: Option<Vec<Thing>> = response.take((0, "drafts")).map_err(get_io_error)?;
+
+        Ok(unwrap_things(drafts.unwrap_or_default()))
+    }
+
+    pub async fn query_agenda_by_id(&self, user_id: &str) -> Result<Vec<DbModelId>, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!("select ->own->agenda as agendas from user where id == user:{user_id}"),
+        )
+        .await?;
+        let agendas: Option<Vec<Thing>> = response.take((0, "agendas")).map_err(get_io_error)?;
+
+        Ok(unwrap_things(agendas.unwrap_or_default()))
+    }
+
+    pub async fn query_task_list_by_id(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<DbModelId>, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!("select ->own->task_list as task_lists from user where id == user:{user_id}"),
+        )
+        .await?;
+        let task_lists: Option<Vec<Thing>> = response.take((0, "task_lists")).map_err(get_io_error)?;
+
+        Ok(unwrap_things(task_lists.unwrap_or_default()))
     }
 }
