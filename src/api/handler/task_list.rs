@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Path, State},
+    http::StatusCode,
     response::IntoResponse,
     Json,
 };
@@ -14,6 +15,8 @@ use crate::{
     usecase::util::auth_backend::AuthBackend,
 };
 
+use super::util::{authorize_against_task_list_id, task_list_db_to_api};
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetTaskListInfoResponse {
     #[serde(flatten)]
@@ -25,7 +28,30 @@ pub async fn get_task_list_info(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(task_list_id): Path<String>,
 ) -> impl IntoResponse {
-    todo!()
+    let state = state.lock().await;
+    if let Some(value) =
+        authorize_against_task_list_id(&auth_session, &state.user_repo, &task_list_id).await
+    {
+        return value;
+    }
+
+    let db_task_list = match state.task_repo.query_task_list_by_id(&task_list_id).await {
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(task_list) => task_list,
+    };
+
+    let api_task_list = task_list_db_to_api(db_task_list);
+
+    match api_task_list {
+        None => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Some(api_task_list) => (
+            StatusCode::OK,
+            Json(GetTaskListInfoResponse {
+                task_list: api_task_list,
+            }),
+        )
+            .into_response(),
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

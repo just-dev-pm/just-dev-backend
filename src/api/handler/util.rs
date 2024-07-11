@@ -19,7 +19,10 @@ use crate::{
             status::{Status, StatusPool},
         },
         repository::{
-            agenda::AgendaRepository, project::ProjectRepository, user::UserRepository,
+            agenda::AgendaRepository,
+            project::ProjectRepository,
+            task::{Entity, TaskRepository},
+            user::UserRepository,
             utils::unwrap_thing,
         },
     },
@@ -132,6 +135,26 @@ pub async fn authorize_against_event_id(
         } else {
             None
         }
+    }
+}
+
+pub async fn authorize_against_task_list_id(
+    auth_session: &AuthSession<AuthBackend>,
+    user_repo: &UserRepository,
+    task_list_id: &str,
+) -> Option<axum::http::Response<axum::body::Body>> {
+    let user_id = match auth_session.user.clone() {
+        None => return Some(StatusCode::UNAUTHORIZED.into_response()),
+        Some(user) => user.id(),
+    };
+    let task_lists = match user_repo.query_task_list_by_id(&user_id).await {
+        Ok(task_lists) => task_lists,
+        Err(_) => return Some(StatusCode::UNAUTHORIZED.into_response()),
+    };
+    if task_lists.contains(&task_list_id.to_string()) {
+        None
+    } else {
+        Some(StatusCode::UNAUTHORIZED.into_response())
     }
 }
 
@@ -313,6 +336,8 @@ pub fn project_api_to_db(
 
 use crate::db::model::notification::NotificationSource;
 
+use super::task_list;
+
 pub fn notif_db_to_api(
     notif: crate::db::model::notification::Notification,
     source: NotificationSource,
@@ -384,4 +409,22 @@ pub fn agenda_db_to_api(
             .map(|event| Id { id: event })
             .collect(),
     }
+}
+
+pub fn task_list_db_to_api(
+    task_list: crate::db::model::task::TaskList,
+) -> Option<crate::api::model::task::TaskList> {
+    let id = match task_list.id {
+        None => return None,
+        Some(id) => id.id.to_string(),
+    };
+
+    Some(crate::api::model::task::TaskList {
+        id,
+        name: task_list.name,
+        tasks: match task_list.tasks {
+            None => vec![],
+            Some(tasks) => tasks.into_iter().map(|id| Id { id }).collect(),
+        },
+    })
 }
