@@ -348,28 +348,30 @@ async fn handle_socket(
     let sub = bcast.subscribe(sender, receiver);
 
     // TODO; fix future is not send error
-    // match sub.completed().await {
-    //     Ok(_) => {
-    //         let old_draft = draft_repo.query_draft_by_id(&draft_id).await;
-    //         match old_draft {
-    //             Err(_) => (),
-    //             Ok(old_draft) => {
-    //                 let awareness = bcast.awareness().read().await;
-    //                 let doc = awareness.doc();
-    //                 let txn = doc.transact();
-    //                 let rev = txn.snapshot();
-    //                 let mut encoder = EncoderV1::new();
-    //                 txn.encode_state_from_snapshot(&rev, &mut encoder).unwrap();
-    //                 let update = encoder.to_vec();
-    //                 draft_repo
-    //                     .update_draft(DraftPayload {
-    //                         content: update,
-    //                         ..old_draft
-    //                     })
-    //                     .await;
-    //             }
-    //         }
-    //     }
-    //     Err(_) => (),
-    // }
+    match sub.completed().await {
+        Ok(_) => {
+            let old_draft = draft_repo.query_draft_by_id(&draft_id).await;
+            match old_draft {
+                Err(_) => (),
+                Ok(old_draft) => {
+                    let awareness = bcast.awareness().read().await;
+                    let doc = awareness.doc();
+                    let txn = doc.transact();
+                    let rev = txn.snapshot();
+                    let mut encoder = EncoderV1::new();
+                    txn.encode_state_from_snapshot(&rev, &mut encoder).unwrap();
+                    let update = encoder.to_vec();
+                    let new_draft = DraftPayload {
+                        content: update,
+                        ..old_draft
+                    };
+
+                    tokio::spawn(async move {
+                        draft_repo.update_draft(new_draft).await;
+                    });
+                }
+            }
+        }
+        Err(_) => (),
+    }
 }
