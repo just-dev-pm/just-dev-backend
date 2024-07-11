@@ -1,6 +1,7 @@
 use axum::{extract::ws::close_code::PROTOCOL, http::StatusCode, response::IntoResponse};
 use axum_login::{AuthSession, AuthUser};
 use surrealdb::sql::Thing;
+use tracing::event;
 
 use crate::{
     api::{
@@ -9,6 +10,7 @@ use crate::{
             agenda::Event,
             asset::Asset,
             status::{IndexedStatusItem, StatusItem},
+            util::Id,
         },
     },
     db::{
@@ -16,7 +18,10 @@ use crate::{
             project::Project,
             status::{Status, StatusPool},
         },
-        repository::{project::ProjectRepository, user::UserRepository, utils::unwrap_thing},
+        repository::{
+            agenda::AgendaRepository, project::ProjectRepository, user::UserRepository,
+            utils::unwrap_thing,
+        },
     },
     usecase::util::auth_backend::AuthBackend,
 };
@@ -105,6 +110,28 @@ pub async fn authorize_against_agenda_id(
         None
     } else {
         Some(StatusCode::UNAUTHORIZED.into_response())
+    }
+}
+
+pub async fn authorize_against_event_id(
+    auth_session: &AuthSession<AuthBackend>,
+    agenda_repo: &AgendaRepository,
+    user_repo: &UserRepository,
+    agenda_id: &str,
+    event_id: &str,
+) -> Option<axum::http::Response<axum::body::Body>> {
+    if let Some(value) = authorize_against_agenda_id(&auth_session, user_repo, &agenda_id).await {
+        return Some(value);
+    }
+    let event_ids = agenda_repo.query_event_id_by_agenda_id(&agenda_id).await;
+    if let Err(msg) = event_ids {
+        Some((StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response())
+    } else {
+        if !event_ids.unwrap().contains(&event_id.to_owned()) {
+            Some(StatusCode::UNAUTHORIZED.into_response())
+        } else {
+            None
+        }
     }
 }
 
@@ -340,6 +367,21 @@ pub fn event_db_to_api(
         participants: participants
             .into_iter()
             .map(|p| api::model::util::Id { id: p })
+            .collect(),
+    }
+}
+
+pub fn agenda_db_to_api(
+    agenda: crate::db::model::agenda::Agenda,
+    events: Option<Vec<String>>,
+) -> crate::api::model::agenda::Agenda {
+    crate::api::model::agenda::Agenda {
+        id: unwrap_thing(agenda.id.unwrap()),
+        name: agenda.name,
+        events: events
+            .unwrap_or_default()
+            .into_iter()
+            .map(|event| Id { id: event })
             .collect(),
     }
 }

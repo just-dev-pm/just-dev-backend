@@ -90,7 +90,7 @@ impl AgendaRepository {
             &self.context,
             format!(
                 "relate user:{user_id} -> own -> agenda:{}",
-                agenda.id.as_ref().unwrap()
+                unwrap_thing(agenda.id.clone().unwrap())
             ),
         )
         .await?;
@@ -121,8 +121,8 @@ impl AgendaRepository {
 
     pub async fn insert_agenda_for_project(
         &self,
-        name: &str,
         project_id: &str,
+        name: &str,
     ) -> Result<Agenda, io::Error> {
         let agenda = Agenda::new(name.to_owned());
         let agenda = create_resource(&self.context, &agenda, "agenda").await?;
@@ -130,7 +130,7 @@ impl AgendaRepository {
             &self.context,
             format!(
                 "relate project:{project_id} -> own -> agenda:{}",
-                agenda.id.as_ref().unwrap().id.to_string()
+                unwrap_thing(agenda.id.clone().unwrap())
             ),
         )
         .await?;
@@ -156,6 +156,22 @@ impl AgendaRepository {
 
     pub async fn query_event_by_id(&self, event_id: &str) -> Result<Event, io::Error> {
         select_resourse(&self.context, event_id, "event").await
+    }
+
+    pub async fn query_assignees_of_event(&self, event_id: &str) -> Result<Vec<DbModelId>, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!(
+                "(SELECT <-event_follow<-event<-plan<-agenda<-own<-user as assignees FROM event WHERE id == event:{}).assignees",
+                event_id
+            ),
+        )
+        .await?;
+        let assignees = response
+            .take::<Option<Vec<Thing>>>(0)
+            .map_err(get_io_error)?
+            .unwrap_or_default();
+        Ok(unwrap_things(assignees))
     }
 
     pub async fn assign_event_for_user(

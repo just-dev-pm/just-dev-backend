@@ -7,7 +7,7 @@ use axum::{
     Json,
 };
 use axum_login::AuthSession;
-use futures::{future::try_join_all, stream, StreamExt};
+use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
@@ -20,7 +20,10 @@ use crate::{
     usecase::util::auth_backend::AuthBackend,
 };
 
-use super::util::authorize_against_user_id;
+use super::util::{
+        agenda_db_to_api, authorize_against_agenda_id, authorize_against_project_id,
+        authorize_against_user_id,
+    };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetAgendasForUserResponse {
@@ -84,7 +87,49 @@ pub async fn get_agendas_for_project(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(project_id): Path<String>,
 ) -> impl IntoResponse {
-    todo!()
+    let ref state = state.lock().await;
+    let ref agenda_repo = state.agenda_repo;
+    let ref project_repo = state.project_repo;
+    if let Some(value) =
+        authorize_against_project_id(auth_session, &project_repo, &project_id).await
+    {
+        return value;
+    }
+
+    let returned_agendas = project_repo.query_agenda_by_id(&project_id).await;
+
+    let agendas = match returned_agendas {
+        Ok(agendas) => agendas
+            .into_iter()
+            .map(|id| async move { agenda_repo.query_agenda_by_id(id.as_str()).await })
+            .collect::<Vec<_>>(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+
+    let agendas = match try_join_all(agendas).await {
+        Ok(agendas) => agendas
+            .into_iter()
+            .map(|agenda| {
+                let agenda_id = unwrap_thing(agenda.id.clone().unwrap());
+                async move {
+                    let events = agenda_repo.query_event_id_by_agenda_id(&agenda_id).await?;
+                    Ok::<Agenda, io::Error>(Agenda {
+                        id: agenda_id,
+                        name: agenda.name,
+                        events: events.into_iter().map(|event| Id { id: event }).collect(),
+                    })
+                }
+            })
+            .collect::<Vec<_>>(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+
+    let agendas = match try_join_all(agendas).await {
+        Ok(agendas) => agendas,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+
+    (StatusCode::OK, Json(GetAgendasForUserResponse { agendas })).into_response()
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -98,7 +143,40 @@ pub async fn get_agenda_info(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(agenda_id): Path<String>,
 ) -> impl IntoResponse {
-    todo!()
+    let ref state = state.lock().await;
+    let ref agenda_repo = state.agenda_repo;
+    let ref user_repo = state.user_repo;
+    if let Some(value) = authorize_against_agenda_id(&auth_session, user_repo, &agenda_id).await {
+        return value;
+    }
+
+    let returned_agenda = agenda_repo.query_agenda_by_id(&agenda_id).await;
+
+    let agenda = match returned_agenda {
+        Ok(agenda) => {
+            let events = agenda_repo.query_event_id_by_agenda_id(&agenda_id).await;
+            if let Err(msg) = events {
+                return (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response();
+            }
+            Ok::<Agenda, io::Error>(Agenda {
+                id: agenda_id,
+                name: agenda.name,
+                events: events
+                    .unwrap()
+                    .into_iter()
+                    .map(|event| Id { id: event })
+                    .collect(),
+            })
+        }
+        Err(msg) => return (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response(),
+    };
+
+    let agenda = match agenda {
+        Ok(agenda) => agenda,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+
+    (StatusCode::OK, Json(GetAgendaInfoResponse { agenda })).into_response()
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -119,7 +197,27 @@ pub async fn create_agenda_for_user(
     Path(user_id): Path<String>,
     Json(req): Json<CreateAgendaForUserRequest>,
 ) -> impl IntoResponse {
-    todo!()
+    let ref state = state.lock().await;
+    let ref agenda_repo = state.agenda_repo;
+
+    if let Some(value) = authorize_against_user_id(auth_session, &user_id) {
+        return value;
+    };
+
+    let returned_agenda = agenda_repo
+        .insert_agenda_for_user(&user_id, &req.name)
+        .await;
+    
+    match returned_agenda {
+        Ok(agenda) => (
+            StatusCode::OK,
+            Json(CreateAgendaForProjectResponse {
+                agenda: agenda_db_to_api(agenda, None),
+            }),
+        )
+            .into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -140,7 +238,28 @@ pub async fn create_agenda_for_project(
     Path(project_id): Path<String>,
     Json(req): Json<CreateAgendaForProjectRequest>,
 ) -> impl IntoResponse {
-    todo!()
+    let ref state = state.lock().await;
+    let ref agenda_repo = state.agenda_repo;
+    let ref project_repo = state.project_repo;
+
+    if let Some(value) = authorize_against_project_id(auth_session, project_repo, &project_id).await
+    {
+        return value;
+    }
+
+    let returned_agenda = agenda_repo
+        .insert_agenda_for_project(&project_id, &req.name)
+        .await;
+    match returned_agenda {
+        Ok(agenda) => (
+            StatusCode::OK,
+            Json(CreateAgendaForProjectResponse {
+                agenda: agenda_db_to_api(agenda, None),
+            }),
+        )
+            .into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
 }
 
 pub async fn delete_agenda(
@@ -148,5 +267,16 @@ pub async fn delete_agenda(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(agenda_id): Path<String>,
 ) -> impl IntoResponse {
-    todo!()
+    let ref state = state.lock().await;
+    let ref agenda_repo = state.agenda_repo;
+    let ref user_repo = state.user_repo;
+    if let Some(value) = authorize_against_agenda_id(&auth_session, user_repo, &agenda_id).await {
+        return value;
+    }
+
+    match agenda_repo.delete_agenda(&agenda_id).await {
+        Ok(_) => StatusCode::OK.into_response(),
+        Err(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response(),
+    }
+
 }

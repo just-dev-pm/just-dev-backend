@@ -366,5 +366,12 @@ mod test_user {
         assert_eq!(result.len(), 1)
     }
 
+    #[tokio::test]
+    async fn test_query_assignees_of_event() {
+        let repo = AgendaRepository::new().await;
+        let result = repo.query_assignees_of_event("xiwen").await.unwrap();
+        assert!(result.contains(&"xiwen".to_owned()));
+    }
+
     
 }

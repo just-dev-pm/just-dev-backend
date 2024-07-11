@@ -359,6 +359,7 @@ async fn handle_socket(
                     let txn = doc.transact();
                     let rev = txn.snapshot();
                     let mut encoder = EncoderV1::new();
+                    dbg!("Subscription completed");
                     txn.encode_state_from_snapshot(&rev, &mut encoder).unwrap();
                     let update = encoder.to_vec();
                     let new_draft = DraftPayload {
@@ -367,7 +368,7 @@ async fn handle_socket(
                     };
 
                     tokio::spawn(async move {
-                        draft_repo.update_draft(new_draft).await;
+                        let _ = draft_repo.update_draft(new_draft).await;
                     });
                 }
             }

@@ -22,7 +22,7 @@ use crate::{
     usecase::util::auth_backend::AuthBackend,
 };
 
-use super::util::{authorize_against_agenda_id, event_db_to_api};
+use super::util::{authorize_against_agenda_id, authorize_against_event_id, event_db_to_api};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CreateEventForAgendaRequest {
@@ -123,7 +123,22 @@ pub async fn patch_event(
     Path((agenda_id, event_id)): Path<(String, String)>,
     Json(req): Json<PatchEventRequest>,
 ) -> impl IntoResponse {
+    let ref state = state.lock().await;
+    let ref user_repo = state.user_repo;
+    let ref agenda_repo = state.agenda_repo;
+
+    if let Some(value) =
+        authorize_against_event_id(&auth_session, agenda_repo, user_repo, &agenda_id, &event_id)
+            .await
+    {
+        return value;
+    }
+    let event_ref = match agenda_repo.query_event_by_id(&event_id).await {
+        Ok(event) => event,
+        Err(msg) => return (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response(),
+    };
     todo!()
+    
 }
 
 pub async fn delete_event(
@@ -131,5 +146,19 @@ pub async fn delete_event(
     State(state): State<Arc<Mutex<AppState>>>,
     Path((agenda_id, event_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    todo!()
+    let ref state = state.lock().await;
+    let ref user_repo = state.user_repo;
+    let ref agenda_repo = state.agenda_repo;
+
+    if let Some(value) =
+        authorize_against_event_id(&auth_session, agenda_repo, user_repo, &agenda_id, &event_id)
+            .await
+    {
+        return value;
+    }
+
+    match agenda_repo.delete_event(&event_id).await {
+        Ok(_) => StatusCode::OK.into_response(),
+        Err(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response(),
+    }
 }
