@@ -88,6 +88,7 @@ impl App {
             agenda_repo: AgendaRepository::new().await,
             draft_repo: DraftRepository::new().await,
             notif_repo: NotificationRepository::new().await,
+            requ_repo: RequirementRepository::new().await,
             invitation_token_repo: Arc::new(Mutex::new(InvitationTokenRepository::default())),
         }));
 
