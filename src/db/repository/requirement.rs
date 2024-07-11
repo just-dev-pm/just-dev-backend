@@ -1,11 +1,10 @@
 use std::io;
 
-use surrealdb::sql::Thing;
 
 use crate::db::{db_context::DbContext, model::requirement::Requirement};
 
 use super::utils::{
-    create_resource, custom_io_error, delete_resource, exec_query, get_io_error, select_resourse,
+    create_resource, delete_resource, exec_query, get_io_error,
     unwrap_thing, update_resource,
 };
 
@@ -54,7 +53,7 @@ impl RequirementRepository {
     }
 
     pub async fn delete_requ_from_project(&self, requ_id: &str) -> Result<Requirement, io::Error> {
-        Ok(delete_resource::<Requirement>(&self.context, requ_id, "requirement").await?)
+        delete_resource::<Requirement>(&self.context, requ_id, "requirement").await
     }
 
     pub async fn update_requ(
@@ -62,6 +61,6 @@ impl RequirementRepository {
         requ_id: &str,
         requ: &Requirement,
     ) -> Result<Requirement, io::Error> {
-        Ok(update_resource(&self.context, requ_id, requ, "requirement").await?)
+        update_resource(&self.context, requ_id, requ, "requirement").await
     }
 }

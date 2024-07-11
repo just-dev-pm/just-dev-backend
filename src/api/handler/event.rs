@@ -1,13 +1,17 @@
 use std::sync::Arc;
 
+use crate::api::model::agenda::Event as ApiEvent;
+use crate::db::model::agenda::Event as DbEvent;
 use axum::{
     extract::{Path, State},
+    http::StatusCode,
     response::IntoResponse,
     Json,
 };
 use axum_login::AuthSession;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use surrealdb::opt::auth;
 use tokio::sync::Mutex;
 
 use crate::{
@@ -17,6 +21,8 @@ use crate::{
     },
     usecase::util::auth_backend::AuthBackend,
 };
+
+use super::util::{authorize_against_agenda_id, event_db_to_api};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CreateEventForAgendaRequest {
@@ -39,7 +45,25 @@ pub async fn create_event_for_agenda(
     Path(agenda_id): Path<String>,
     Json(req): Json<CreateEventForAgendaRequest>,
 ) -> impl IntoResponse {
-    todo!()
+    let ref state = state.lock().await;
+    let ref agenda_repo = state.agenda_repo;
+    let ref user_repo = state.user_repo;
+    if let Some(value) = authorize_against_agenda_id(&auth_session, user_repo, &agenda_id).await {
+        return value;
+    }
+    match agenda_repo
+        .insert_event_for_agenda(&DbEvent::from_create_request(req), &agenda_id)
+        .await
+    {
+        Ok(event) => (
+            StatusCode::OK,
+            Json(CreateEventForAgendaResponse {
+                event: event_db_to_api(event, vec![]),
+            }),
+        )
+            .into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -52,7 +76,25 @@ pub async fn get_events_for_agenda(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(agenda_id): Path<String>,
 ) -> impl IntoResponse {
-    todo!()
+    let ref state = state.lock().await;
+    let ref agenda_repo = state.agenda_repo;
+    let ref user_repo = state.user_repo;
+    if let Some(value) = authorize_against_agenda_id(&auth_session, user_repo, &agenda_id).await {
+        return value;
+    }
+    match agenda_repo.query_events_by_agenda_id(&agenda_id).await {
+        Ok(events) => (
+            StatusCode::OK,
+            Json(GetEventsForAgendaResponse {
+                events: events
+                    .into_iter()
+                    .map(|event| event_db_to_api(event, vec![]))
+                    .collect(),
+            }),
+        )
+            .into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

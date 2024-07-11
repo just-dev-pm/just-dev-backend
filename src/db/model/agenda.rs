@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Datetime, Thing};
 
-use crate::db::repository::utils::DbModelId;
+use crate::{api::handler::event::CreateEventForAgendaRequest, db::repository::utils::DbModelId};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Agenda {
@@ -37,6 +37,16 @@ impl Event {
             description,
             start_time: Datetime::default(),
             end_time: Datetime::default(),
+        }
+    }
+
+    pub fn from_create_request(req: CreateEventForAgendaRequest) -> Self {
+        Event {
+            id: None,
+            name: req.name,
+            description: req.description,
+            start_time: Datetime(req.start_time),
+            end_time: Datetime(req.end_time),
         }
     }
 }

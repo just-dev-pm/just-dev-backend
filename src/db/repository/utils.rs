@@ -1,4 +1,3 @@
-use std::task::Context;
 use std::{error::Error, io};
 use surrealdb::sql::Thing;
 
@@ -27,7 +26,8 @@ pub fn unwrap_things(things: Vec<Thing>) -> Vec<DbModelId> {
         .collect()
 }
 
-use surrealdb::{opt, Response};
+use surrealdb::Response;
+use yrs::{updates::encoder::{Encoder, EncoderV1}, Doc, Options, ReadTxn, Transact};
 
 use crate::db::db_context::DbContext;
 
@@ -118,3 +118,15 @@ pub async fn exec_double_query(
         .map_err(get_io_error)
 }
 
+
+pub fn init_draft_content() -> Vec<u8> {
+    let doc = Doc::with_options(Options {
+        skip_gc: true,
+        ..Options::default()
+    });
+    let txn = doc.transact_mut();
+    let rev = txn.snapshot();
+    let mut encoder = EncoderV1::new();
+    txn.encode_state_from_snapshot(&rev, &mut encoder).unwrap();
+    encoder.to_vec()
+}

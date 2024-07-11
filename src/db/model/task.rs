@@ -3,7 +3,7 @@ use surrealdb::sql::{Datetime, Thing};
 
 use crate::db::repository::utils::DbModelId;
 
-use super::{status::StatusPool, user::User};
+use super::status::StatusPool;
 
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]

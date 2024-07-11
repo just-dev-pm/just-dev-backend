@@ -6,7 +6,7 @@ pub mod util;
 #[cfg(test)]
 mod test {
     use crate::{
-        api::handler::agenda,
+       
         db::{
             model::{status::StatusPool, user::User},
             repository::{agenda::AgendaRepository, task::TaskRepository, user::UserRepository},

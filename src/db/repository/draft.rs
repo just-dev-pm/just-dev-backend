@@ -1,13 +1,12 @@
 use std::io;
 
-use serde_json::json;
 
 use crate::db::{
     db_context::DbContext,
     model::draft::{Draft, DraftPayload},
 };
 
-use super::utils::{custom_io_error, get_io_error};
+use super::utils::{custom_io_error, get_io_error, init_draft_content};
 
 #[derive(Clone)]
 pub struct DraftRepository {
@@ -36,7 +35,7 @@ impl DraftRepository {
         name: &str,
         user_id: &str,
     ) -> Result<DraftPayload, io::Error> {
-        let draft = Draft::new(name.to_string(), &vec![]);
+        let draft = Draft::new(name.to_string(), &init_draft_content());
         let result: Option<Draft> = self
             .context
             .db
@@ -64,7 +63,7 @@ impl DraftRepository {
         name: &str,
         project_id: &str,
     ) -> Result<DraftPayload, io::Error> {
-        let draft = Draft::new(name.to_string(), &vec![]);
+        let draft = Draft::new(name.to_string(), &init_draft_content());
         let result: Option<Draft> = self
             .context
             .db

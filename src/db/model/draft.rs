@@ -2,9 +2,8 @@ use std::io;
 
 use base64_lib::{decode, encode};
 use serde::{Deserialize, Serialize};
-use surrealdb::sql::{Bytes, Id, Thing, Value};
+use surrealdb::sql::{Id, Thing};
 
-use crate::db::repository::utils::custom_io_error;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Draft {

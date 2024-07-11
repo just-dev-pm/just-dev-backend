@@ -1,11 +1,13 @@
-use std::sync::Arc;
+use std::{io, sync::Arc};
 
 use axum::{
     extract::{Path, State},
+    http::StatusCode,
     response::IntoResponse,
     Json,
 };
 use axum_login::AuthSession;
+use futures::{future::try_join_all, stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
@@ -14,6 +16,7 @@ use crate::{
         app::AppState,
         model::{agenda::Agenda, util::Id},
     },
+    db::repository::utils::unwrap_thing,
     usecase::util::auth_backend::AuthBackend,
 };
 
@@ -32,9 +35,43 @@ pub async fn get_agendas_for_user(
     if let Some(value) = authorize_against_user_id(auth_session, &user_id) {
         return value;
     }
+    let ref state = state.lock().await;
+    let ref user_repo = state.user_repo;
+    let ref agenda_repo = state.agenda_repo;
+    let returned_agendas = user_repo.query_agenda_by_id(&user_id).await;
 
-    todo!()
+    let agendas = match returned_agendas {
+        Ok(agendas) => agendas
+            .into_iter()
+            .map(|id| async move { agenda_repo.query_agenda_by_id(id.as_str()).await })
+            .collect::<Vec<_>>(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
 
+    let agendas = match try_join_all(agendas).await {
+        Ok(agendas) => agendas
+            .into_iter()
+            .map(|agenda| {
+                let agenda_id = unwrap_thing(agenda.id.clone().unwrap());
+                async move {
+                    let events = agenda_repo.query_event_id_by_agenda_id(&agenda_id).await?;
+                    Ok::<Agenda, io::Error>(Agenda {
+                        id: agenda_id,
+                        name: agenda.name,
+                        events: events.into_iter().map(|event| Id { id: event }).collect(),
+                    })
+                }
+            })
+            .collect::<Vec<_>>(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+
+    let agendas = match try_join_all(agendas).await {
+        Ok(agendas) => agendas,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+
+    (StatusCode::OK, Json(GetAgendasForUserResponse { agendas })).into_response()
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

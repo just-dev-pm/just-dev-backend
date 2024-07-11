@@ -5,16 +5,13 @@ use surrealdb::sql::Thing;
 use crate::db::{
     db_context::DbContext,
     model::{
-        agenda::Agenda,
-        draft::{Draft, DraftPayload},
         project::Project,
-        task::TaskList,
         user::User,
     },
 };
 
 use super::utils::{
-    exec_double_query, exec_query, get_io_error, unwrap_thing, unwrap_things, DbModelId,
+    exec_double_query, exec_query, get_io_error, unwrap_things, DbModelId,
 };
 
 #[derive(Clone, Debug)]

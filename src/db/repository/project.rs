@@ -2,9 +2,7 @@
 use surrealdb::sql::Thing;
 
 use crate::db::db_context::DbContext;
-use crate::db::model::agenda::Agenda;
 use crate::db::model::project::Project;
-use crate::db::model::task::TaskList;
 use crate::db::model::user::User;
 use std::io;
 

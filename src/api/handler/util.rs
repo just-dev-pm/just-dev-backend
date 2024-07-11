@@ -3,9 +3,13 @@ use axum_login::{AuthSession, AuthUser};
 use surrealdb::sql::Thing;
 
 use crate::{
-    api::model::{
-        asset::Asset,
-        status::{IndexedStatusItem, StatusItem},
+    api::{
+        self,
+        model::{
+            agenda::Event,
+            asset::Asset,
+            status::{IndexedStatusItem, StatusItem},
+        },
     },
     db::{
         model::{
@@ -81,6 +85,26 @@ pub async fn authorize_admin_against_project_id(
             false => Some(StatusCode::UNAUTHORIZED.into_response()),
             true => None,
         },
+    }
+}
+
+pub async fn authorize_against_agenda_id(
+    auth_session: &AuthSession<AuthBackend>,
+    user_repo: &UserRepository,
+    agenda_id: &str,
+) -> Option<axum::http::Response<axum::body::Body>> {
+    let user_id = match auth_session.user.clone() {
+        None => return Some(StatusCode::UNAUTHORIZED.into_response()),
+        Some(user) => user.id(),
+    };
+    let agendas = match user_repo.query_agenda_by_id(&user_id).await {
+        Ok(agendas) => agendas,
+        Err(_) => return Some(StatusCode::UNAUTHORIZED.into_response()),
+    };
+    if agendas.contains(&agenda_id.to_string()) {
+        None
+    } else {
+        Some(StatusCode::UNAUTHORIZED.into_response())
     }
 }
 
@@ -279,8 +303,9 @@ pub fn notif_db_to_api(
     }
 }
 
-
-pub fn requ_db_to_api(requ: crate::db::model::requirement::Requirement) -> crate::api::model::requirement::Requirement {
+pub fn requ_db_to_api(
+    requ: crate::db::model::requirement::Requirement,
+) -> crate::api::model::requirement::Requirement {
     crate::api::model::requirement::Requirement {
         id: unwrap_thing(requ.id.unwrap()),
         name: requ.name,
@@ -300,4 +325,21 @@ pub fn draft_db_to_api(
         id,
         name: draft.name,
     })
+}
+
+pub fn event_db_to_api(
+    event: crate::db::model::agenda::Event,
+    participants: Vec<String>,
+) -> crate::api::model::agenda::Event {
+    Event {
+        id: unwrap_thing(event.id.unwrap()),
+        name: event.name,
+        description: event.description,
+        start_time: event.start_time.0,
+        end_time: event.end_time.0,
+        participants: participants
+            .into_iter()
+            .map(|p| api::model::util::Id { id: p })
+            .collect(),
+    }
 }

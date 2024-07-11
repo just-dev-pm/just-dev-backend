@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use surrealdb::sql::Thing;
 
 #[derive(Clone, Deserialize, Serialize, Debug, Default)]
 pub struct Status {

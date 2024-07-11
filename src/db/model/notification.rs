@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::Thing;
 
-use crate::db::repository::utils::DbModelId;
 
 
 pub enum NotificationSource {
