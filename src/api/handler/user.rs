@@ -34,10 +34,6 @@ pub async fn get_user_info(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(user_id): Path<String>,
 ) -> impl IntoResponse {
-    if let Some(value) = authorize_against_user_id(auth_session, &user_id) {
-        return value;
-    }
-
     let state = state.lock().await;
     let db_user = state.user_repo.query_user_by_id(&user_id).await;
 
