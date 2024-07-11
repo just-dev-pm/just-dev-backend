@@ -158,7 +158,10 @@ impl AgendaRepository {
         select_resourse(&self.context, event_id, "event").await
     }
 
-    pub async fn query_assignees_of_event(&self, event_id: &str) -> Result<Vec<DbModelId>, io::Error> {
+    pub async fn query_assignees_of_event(
+        &self,
+        event_id: &str,
+    ) -> Result<Vec<DbModelId>, io::Error> {
         let mut response = exec_query(
             &self.context,
             format!(
@@ -172,6 +175,29 @@ impl AgendaRepository {
             .map_err(get_io_error)?
             .unwrap_or_default();
         Ok(unwrap_things(assignees))
+    }
+
+    pub async fn deassign_event_for_user(
+        &self,
+        event_id: &str,
+        user_id: &str,
+    ) -> Result<Event, io::Error> {
+        let mut response = exec_double_query(
+            &self.context, 
+            format!("(select <-event_follow<-event as events from event where id == event:{event_id}).events"), 
+            format!("(select ->plan->event as assigned from agenda where id == agenda:{user_id}).assigned")).await?;
+        let events = unwrap_things(response
+            .take::<Option<Vec<Thing>>>(0)
+            .map_err(get_io_error)?
+            .unwrap_or_default());
+        let user_assigned = unwrap_things(response.take::<Option<Vec<Thing>>>(1).map_err(get_io_error)?.unwrap_or_default());
+        for event in events {
+            if user_assigned.contains(&event) {
+                return Ok(delete_resource::<Event>(&self.context, &event, "event").await?);
+            }
+        }
+        Err(custom_io_error("Assigning relation not found"))
+
     }
 
     pub async fn assign_event_for_user(

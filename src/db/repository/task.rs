@@ -242,4 +242,46 @@ impl TaskRepository {
         let task = update_resource(&self.context, task_id, task, "task").await?;
         Ok(task)
     }
+
+    pub async fn query_assignees_of_task(
+        &self,
+        event_id: &str,
+    ) -> Result<Vec<DbModelId>, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!(
+                "(SELECT <-follow<-task<-have<-task_list<-own<-user as assignees FROM event WHERE id == task:{}).assignees",
+                event_id
+            ),
+        )
+        .await?;
+        let assignees = response
+            .take::<Option<Vec<Thing>>>(0)
+            .map_err(get_io_error)?
+            .unwrap_or_default();
+        Ok(unwrap_things(assignees))
+    }
+
+    pub async fn deassign_task_for_user(
+        &self,
+        event_id: &str,
+        user_id: &str,
+    ) -> Result<Task, io::Error> {
+        let mut response = exec_double_query(
+            &self.context, 
+            format!("(select <-follow<-task as events from event where id == event:{event_id}).events"), 
+            format!("(select ->have->task_list as assigned from agenda where id == agenda:{user_id}).assigned")).await?;
+        let events = unwrap_things(response
+            .take::<Option<Vec<Thing>>>(0)
+            .map_err(get_io_error)?
+            .unwrap_or_default());
+        let user_assigned = unwrap_things(response.take::<Option<Vec<Thing>>>(1).map_err(get_io_error)?.unwrap_or_default());
+        for event in events {
+            if user_assigned.contains(&event) {
+                return Ok(delete_resource::<Task>(&self.context, &event, "task").await?);
+            }
+        }
+        Err(custom_io_error("Assigning relation not found"))
+
+    }
 }

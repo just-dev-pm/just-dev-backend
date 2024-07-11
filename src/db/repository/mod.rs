@@ -10,6 +10,8 @@ pub mod utils;
 #[cfg(test)]
 mod test_user {
 
+    use std::result;
+
     use axum_login::AuthUser;
 
     use crate::{
@@ -372,6 +374,17 @@ mod test_user {
         let result = repo.query_assignees_of_event("xiwen").await.unwrap();
         assert!(result.contains(&"xiwen".to_owned()));
     }
+
+    #[tokio::test]
+    async fn test_deassign_uset_of_event() {
+        let repo = AgendaRepository::new().await;
+        let result = repo.deassign_event_for_user("xiwen", "xiwen").await.unwrap();
+        assert_eq!(result.name, "xiwen");
+        let repo = AgendaRepository::new().await;
+        let result = repo.assign_event_for_user("xiwen", "xiwen").await.unwrap();
+        assert_eq!(result.name, "xiwen");
+    }
+
 
     
 }
