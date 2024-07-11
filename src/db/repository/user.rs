@@ -147,7 +147,7 @@ impl UserRepository {
         )
         .await?;
         let notifs = response
-            .take::<Option<Vec<Thing>>>("notifs")
+            .take::<Option<Vec<Thing>>>((0, "notifs"))
             .map_err(get_io_error)?
             .unwrap_or_default();
         Ok(unwrap_things(notifs))

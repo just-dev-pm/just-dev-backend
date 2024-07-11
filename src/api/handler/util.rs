@@ -3,13 +3,13 @@ use axum_login::{AuthSession, AuthUser};
 use surrealdb::sql::Thing;
 
 use crate::{
-    api::model::status::{IndexedStatusItem, StatusItem},
+    api::model::{asset::Asset, status::{IndexedStatusItem, StatusItem}},
     db::{
         model::{
             project::Project,
             status::{Status, StatusPool},
         },
-        repository::{project::ProjectRepository, user::UserRepository},
+        repository::{project::ProjectRepository, user::UserRepository, utils::unwrap_thing},
     },
     usecase::util::auth_backend::AuthBackend,
 };
@@ -253,6 +253,23 @@ pub fn project_api_to_db(
         status_pool: match project.status_pool {
             None => StatusPool::default(),
             Some(status_pool) => status_pool_api_to_db(status_pool),
+        },
+    }
+}
+use crate::db::model::notification::NotificationSource;
+
+pub fn notif_db_to_api(
+    notif: crate::db::model::notification::Notification, source: NotificationSource
+) -> crate::api::model::notification::Notification {
+    crate::api::model::notification::Notification {
+        id: unwrap_thing(notif.id.unwrap()),
+        title: notif.title,
+        content: notif.content,
+        handled: notif.handled,
+        asset: match source {
+            NotificationSource::Task(id) => Asset::Task { id },
+            NotificationSource::Event(id) => Asset::Event { id },
+            NotificationSource::Draft(id) => Asset::Draft { id },
         },
     }
 }

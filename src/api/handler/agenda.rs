@@ -17,6 +17,8 @@ use crate::{
     usecase::util::auth_backend::AuthBackend,
 };
 
+use super::util::authorize_against_user_id;
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetAgendasForUserResponse {
     pub agendas: Vec<Agenda>,
@@ -27,7 +29,12 @@ pub async fn get_agendas_for_user(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(user_id): Path<String>,
 ) -> impl IntoResponse {
+    if let Some(value) = authorize_against_user_id(auth_session, &user_id) {
+        return value;
+    }
+
     todo!()
+
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

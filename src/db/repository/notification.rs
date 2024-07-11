@@ -34,16 +34,16 @@ impl NotificationRepository {
         let mut response = exec_query(
             &self.context,
             format!(
-                "select <-about<-notification as source from notification where id == notification:{}",
+                "select ->about.out as source from notification where id == notification:{}",
                 id
             ),
         )
         .await?;
         let source = response
-            .take::<Option<Thing>>((0, "source"))
+            .take::<Option<Vec<Thing>>>((0, "source"))
             .map_err(get_io_error)?
-            // .unwrap_or_default();
-            // .pop()
+            .unwrap_or_default()
+            .pop()
             .ok_or(custom_io_error("Notification source find failed"))?;
         let source = match source.tb.as_str() {
             "task" => NotificationSource::Task(source.id.to_string()),

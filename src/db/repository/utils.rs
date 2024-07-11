@@ -119,16 +119,3 @@ pub async fn exec_double_query(
         .map_err(get_io_error)
 }
 
-pub async fn extract_from_response<T>(
-    response: &mut Response,
-    index: impl opt::QueryResult<Option<T>>,
-) -> Result<T, io::Error>
-where
-    T: serde::de::DeserializeOwned,
-{
-    let result = response.take::<Option<T>>(index).map_err(get_io_error)?;
-    result.ok_or(io::Error::new(
-        io::ErrorKind::NotFound,
-        "Resource not found",
-    ))
-}

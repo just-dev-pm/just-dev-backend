@@ -126,7 +126,7 @@ impl App {
                 )
                 .route(
                     "/api/users/:user_id/notifications/:notification_id",
-                    post(handle_notification),
+                    patch(handle_notification),
                 )
                 .route("/api/users/:user_id/notifications", get(get_notifications))
                 .route(
