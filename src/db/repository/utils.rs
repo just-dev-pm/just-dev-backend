@@ -95,11 +95,10 @@ where
 {
     context
         .db
-        .delete((table, id))
+        .delete::<Option<T>>((table, id))
         .await
         .map_err(get_io_error)?
         .ok_or(custom_io_error("Delete resource failed"))
-    
 }
 
 pub async fn exec_query(context: &DbContext, query: String) -> Result<Response, io::Error> {

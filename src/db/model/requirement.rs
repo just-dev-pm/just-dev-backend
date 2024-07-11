@@ -4,7 +4,17 @@ use surrealdb::sql::Thing;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Requirement {
-    id: Option<Thing>,
-    name: String,
-    description: String,
+    pub id: Option<Thing>,
+    pub name: String,
+    pub description: String,
+}
+
+impl Requirement {
+    pub fn new(name: String, description: String) -> Self {
+        Self {
+            id: None,
+            name,
+            description,
+        }
+    } 
 }

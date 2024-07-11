@@ -20,7 +20,7 @@ use crate::{
     db::{
         model::agenda::Agenda,
         repository::{
-            agenda::AgendaRepository, draft::DraftRepository, notification::NotificationRepository, project::ProjectRepository, task::TaskRepository, user::UserRepository
+            agenda::AgendaRepository, draft::DraftRepository, notification::NotificationRepository, project::ProjectRepository, requirement::RequirementRepository, task::TaskRepository, user::UserRepository
         },
     },
     usecase::{invitation_token::InvitationTokenRepository, util::auth_backend::AuthBackend},
@@ -44,7 +44,7 @@ use super::handler::{
     },
     requirement::{
         create_requirement_for_project, delete_requirement, get_requirement_info,
-        get_requirements_for_project, patch_requirement,
+        get_requirements_for_project, patch_requirement, GetRequirementsForProjectResponse,
     },
     task::{create_task_for_list, delete_task_from_list, get_tasks_for_list, patch_task},
     task_link::{
@@ -66,6 +66,7 @@ pub struct AppState {
     pub agenda_repo: AgendaRepository,
     pub draft_repo: DraftRepository,
     pub notif_repo: NotificationRepository,
+    pub requ_repo: RequirementRepository,
     pub invitation_token_repo: Arc<Mutex<InvitationTokenRepository>>,
 }
 

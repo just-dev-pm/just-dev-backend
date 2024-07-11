@@ -279,6 +279,15 @@ pub fn notif_db_to_api(
     }
 }
 
+
+pub fn requ_db_to_api(requ: crate::db::model::requirement::Requirement) -> crate::api::model::requirement::Requirement {
+    crate::api::model::requirement::Requirement {
+        id: unwrap_thing(requ.id.unwrap()),
+        name: requ.name,
+        content: requ.description,
+    }
+}
+
 pub fn draft_db_to_api(
     draft: crate::db::model::draft::DraftPayload,
 ) -> Option<crate::api::model::draft::Draft> {

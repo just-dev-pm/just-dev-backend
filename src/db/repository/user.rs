@@ -85,7 +85,9 @@ impl UserRepository {
         let mut response = exec_double_query(
             &self.context,
             format!("select ->own->draft as drafts from user where id == user:{user_id}"),
-            format!("select ->join->project->own->draft as drafts from user where id == user:{user_id}")
+            format!(
+                "select ->join->project->own->draft as drafts from user where id == user:{user_id}"
+            ),
         )
         .await?;
         let mut drafts = response
@@ -130,9 +132,16 @@ impl UserRepository {
             format!("select ->join->project->own->task_list as task_lists from user where id == user:{user_id}")
         )
         .await?;
-        let mut task_lists =
-            response.take::<Option<Vec<Thing>>>((0, "task_lists")).map_err(get_io_error)?.unwrap_or_default();
-        task_lists.extend(response.take::<Option<Vec<Thing>>>((1, "task_lists")).map_err(get_io_error)?.unwrap_or_default());
+        let mut task_lists = response
+            .take::<Option<Vec<Thing>>>((0, "task_lists"))
+            .map_err(get_io_error)?
+            .unwrap_or_default();
+        task_lists.extend(
+            response
+                .take::<Option<Vec<Thing>>>((1, "task_lists"))
+                .map_err(get_io_error)?
+                .unwrap_or_default(),
+        );
 
         Ok(unwrap_things(task_lists))
     }
@@ -152,4 +161,5 @@ impl UserRepository {
             .unwrap_or_default();
         Ok(unwrap_things(notifs))
     }
+
 }

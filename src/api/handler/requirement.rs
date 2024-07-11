@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, State},
-    response::IntoResponse,
-    Json,
+    extract::{Path, State}, http::StatusCode, response::IntoResponse, Json
 };
 use axum_login::AuthSession;
 use serde::{Deserialize, Serialize};
@@ -13,6 +11,8 @@ use crate::{
     api::{app::AppState, model::requirement::Requirement},
     usecase::util::auth_backend::AuthBackend,
 };
+
+use super::util::{authorize_against_project_id, requ_db_to_api};
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct GetRequirementsForProjectResponse {
@@ -24,7 +24,24 @@ pub async fn get_requirements_for_project(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(project_id): Path<String>,
 ) -> impl IntoResponse {
+    let ref state = state.lock().await;
+    let ref project_repo = state.project_repo;
+    let ref requ_repo = state.requ_repo;
+    if let Some(value) = authorize_against_project_id(auth_session, project_repo, &project_id).await {
+        return value;
+    }
+
+    let requs = match project_repo.query_requ_by_project_id(&project_id).await {
+        Ok(requs) => requs,
+        Err(_) => {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+
+
     todo!()
+    // let requs:<Vec<Requirement>> = requs.into_iter().map(requ_db_to_api).collect();
+    // Json(GetRequirementsForProjectResponse { requirements: requs }).into_response()
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -38,7 +55,23 @@ pub async fn get_requirement_info(
     State(state): State<Arc<Mutex<AppState>>>,
     Path((project_id, requirement_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    todo!()
+    let ref state = state.lock().await;
+    let ref project_repo = state.project_repo;
+    let ref requ_repo = state.requ_repo;
+    if let Some(value) = authorize_against_project_id(auth_session, project_repo, &project_id).await {
+        return value;
+    }
+
+    let requ = match requ_repo.query_requ_by_id(&requirement_id).await {
+        Ok(requ) => requ,
+        Err(_) => {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+
+    Json(GetRequirementInfoResponse { requirement: requ_db_to_api(requ) }).into_response()
+    
+    
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]

@@ -14,15 +14,14 @@ mod test_user {
     use surrealdb::Notification;
 
     use crate::{
-        db::{
+        api::handler::requirement::GetRequirementsForProjectResponse, db::{
             model::{
                 agenda::Event, draft::DraftPayload, notification::NotificationSource, project::Project, status::StatusPool, task::Task, user::User
             },
             repository::{
-                agenda::AgendaRepository, draft::DraftRepository, notification::NotificationRepository, project::ProjectRepository, task::{Entity, TaskRepository}, user::UserRepository, utils::unwrap_thing
+                agenda::AgendaRepository, draft::DraftRepository, notification::NotificationRepository, project::ProjectRepository, requirement::RequirementRepository, task::{Entity, TaskRepository}, user::UserRepository, utils::unwrap_thing
             },
-        },
-        usecase::user::insert_user,
+        }, usecase::user::insert_user
     };
 
     fn create_user() -> User {
@@ -343,4 +342,16 @@ mod test_user {
         let result = repo.assign_event_for_user("xiwen", "xiwen").await.unwrap();
         assert_eq!(result.name, "xiwen");
     }
+
+    #[tokio::test]
+    async fn test_insert_requ_for_project() {
+        let repo = RequirementRepository::new().await;
+        let result = repo.insert_requ_for_project("xiwen", "xiwen".to_owned(), "xiwen".to_owned()).await.unwrap();
+        assert_eq!(result.name, "xiwen");
+        let repo = RequirementRepository::new().await;
+        let result = repo.delete_requ_from_project(&unwrap_thing(result.id.clone().unwrap())).await.unwrap();
+        assert_eq!(result.name, "xiwen");
+    }
+
+    
 }

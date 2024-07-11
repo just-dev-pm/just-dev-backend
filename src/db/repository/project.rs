@@ -142,4 +142,17 @@ impl ProjectRepository {
 
         Ok(unwrap_things(agendas.unwrap_or_default()))
     }
+
+    pub async fn query_requ_by_project_id(&self, project_id: &str) -> Result<Vec<DbModelId>, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!("select ->require->requirement as requs from project where id == project:{project_id}"),
+        )
+        .await?;
+        let notifs = response
+            .take::<Option<Vec<Thing>>>((0, "requs"))
+            .map_err(get_io_error)?
+            .unwrap_or_default();
+        Ok(unwrap_things(notifs))
+    }
 }
