@@ -430,8 +430,8 @@ pub async fn accept_invitation(
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetTokenInfoResponse {
-    pub invitor_name: String,
-    pub project_name: String,
+    pub invitor_id: String,
+    pub project_id: String,
 }
 
 pub async fn get_token_info(
@@ -458,9 +458,9 @@ pub async fn get_token_info(
         .query_user_by_id(&invitation_info.inviter)
         .await;
 
-    let invitor_name = match db_invitor {
+    let invitor_id = match db_invitor {
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        Ok(invitor) => invitor.clone().username,
+        Ok(invitor) => invitor.clone().id(),
     };
 
     let db_project = &state
@@ -468,16 +468,19 @@ pub async fn get_token_info(
         .query_project_by_id(&invitation_info.project)
         .await;
 
-    let project_name = match db_project {
+    let project_id = match db_project {
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        Ok(project) => project.clone().name,
+        Ok(project) => match project.clone().id {
+            None => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            Some(thing) => thing.id.to_string(),
+        },
     };
 
     (
         StatusCode::OK,
         Json(GetTokenInfoResponse {
-            invitor_name,
-            project_name,
+            invitor_id,
+            project_id,
         }),
     )
         .into_response()
