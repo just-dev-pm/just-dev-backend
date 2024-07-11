@@ -1,4 +1,6 @@
-use std::io;
+use std::{io, process::id};
+
+use surrealdb::sql::{Id, Thing};
 
 use crate::db::{db_context::DbContext, model::agenda::{Agenda, Event}};
 
@@ -27,6 +29,21 @@ impl AgendaRepository {
     ) -> Result<Agenda, io::Error> {
         let agenda = Agenda::new(name.to_owned());
 
+        let agenda = create_resource(&self.context, &agenda, "agenda")
+            .await?;
+        let _ = exec_query(
+            &self.context,
+            format!(
+                "relate user:{user_id} -> own -> agenda:{}",
+                agenda.id.as_ref().unwrap()
+            ),
+        );
+        Ok(agenda)
+    }
+
+    pub async fn insert_exagenda_for_user(&self, name:&str, user_id:&str) -> Result<Agenda, io::Error> {
+        let mut agenda = Agenda::new(name.to_owned());
+        agenda.id = Some(Thing{tb: "agenda".to_owned(), id: Id::String(user_id.to_owned())});
         let agenda = create_resource(&self.context, &agenda, "agenda")
             .await?;
         let _ = exec_query(
@@ -68,6 +85,28 @@ impl AgendaRepository {
                 ),
             )
             .await?;
+        Ok(event)
+    }
+
+    pub async fn query_event_by_id(&self, event_id: &str) -> Result<Event, io::Error> {
+        select_resourse(&self.context, event_id, "event").await
+    }
+
+    pub async fn assign_event_for_user(&self, event_id: &str, user_id: &str) -> Result<Event, io::Error> {
+        let mut event = self.query_event_by_id(event_id).await?;
+        event.id = None;
+        let event = self.insert_event_for_agenda(&event, user_id).await?; // insert task into user's special tasklist
+
+        let _ = self
+            .context
+            .db
+            .query(format!(
+                "relate event:{} -> event_follow -> event:{}",
+                unwrap_thing(event.id.clone().unwrap()),
+                event_id
+            ))
+            .await
+            .map_err(|e| get_io_error(e))?;
         Ok(event)
     }
 

@@ -20,8 +20,7 @@ use crate::{
     db::{
         model::agenda::Agenda,
         repository::{
-            agenda::AgendaRepository, draft::DraftRepository, project::ProjectRepository,
-            task::TaskRepository, user::UserRepository,
+            agenda::AgendaRepository, draft::DraftRepository, notification::NotificationRepository, project::ProjectRepository, task::TaskRepository, user::UserRepository
         },
     },
     usecase::{invitation_token::InvitationTokenRepository, util::auth_backend::AuthBackend},
@@ -66,6 +65,7 @@ pub struct AppState {
     pub project_repo: ProjectRepository,
     pub agenda_repo: AgendaRepository,
     pub draft_repo: DraftRepository,
+    pub notif_repo: NotificationRepository,
     pub invitation_token_repo: Arc<Mutex<InvitationTokenRepository>>,
 }
 
@@ -86,6 +86,7 @@ impl App {
             project_repo: ProjectRepository::new().await,
             agenda_repo: AgendaRepository::new().await,
             draft_repo: DraftRepository::new().await,
+            notif_repo: NotificationRepository::new().await,
             invitation_token_repo: Arc::new(Mutex::new(InvitationTokenRepository::default())),
         }));
 

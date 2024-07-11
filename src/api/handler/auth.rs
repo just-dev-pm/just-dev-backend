@@ -73,7 +73,7 @@ pub async fn signup(
 
     let db_user = match credential_api_to_user_db(req.credential) {
         None => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        Some(user) => insert_user(&state.user_repo, &state.task_repo, &user).await,
+        Some(user) => insert_user(&state.user_repo, &state.task_repo, &state.agenda_repo, &user).await,
     };
 
     let return_api_user = match db_user {

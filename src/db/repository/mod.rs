@@ -54,7 +54,8 @@ mod test_user {
     async fn test_insert_user() {
         let user_repo = UserRepository::new().await;
         let task_repo = TaskRepository::new().await;
-        let user = insert_user(&user_repo, &task_repo, &create_user())
+        let agenda_repo = AgendaRepository::new().await;
+        let user = insert_user(&user_repo, &task_repo, &agenda_repo, &create_user())
             .await
             .unwrap();
         assert_eq!(user.username, "test");
@@ -255,7 +256,8 @@ mod test_user {
     async fn test_assign_task_to_user() {
         let task_repo = TaskRepository::new().await;
         let user_repo = UserRepository::new().await;
-        let user = insert_user(&user_repo, &task_repo, &create_user())
+        let agenda_repo = AgendaRepository::new().await;
+        let user = insert_user(&user_repo, &task_repo, &agenda_repo, &create_user())
             .await
             .unwrap();
         let user_id = unwrap_thing(user.id.clone().unwrap());
@@ -333,5 +335,12 @@ mod test_user {
         let repo = UserRepository::new().await;
         let result = repo.query_notif_by_user_id("xiwen").await.unwrap();
         assert!(result.contains(&"qqvxafo5l6vkp7etig3b".to_owned()));
+    }
+
+    #[tokio::test]
+    async fn test_assign_event_for_user() {
+        let repo = AgendaRepository::new().await;
+        let result = repo.assign_event_for_user("xiwen", "xiwen").await.unwrap();
+        assert_eq!(result.name, "xiwen");
     }
 }

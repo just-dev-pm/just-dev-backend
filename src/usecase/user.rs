@@ -2,12 +2,12 @@ use std::io;
 
 use axum_login::AuthUser;
 
-use crate::db::{model::user::User, repository::{task::TaskRepository, user::UserRepository}};
+use crate::db::{model::user::User, repository::{agenda::AgendaRepository, task::TaskRepository, user::UserRepository}};
 use crate::db::repository::utils::get_io_error;
 
 
 
-pub async fn insert_user(user_repo:&UserRepository, task_repo:&TaskRepository, user:&User) -> Result<User, io::Error> {
+pub async fn insert_user(user_repo:&UserRepository, task_repo:&TaskRepository, agenda_repo: &AgendaRepository, user:&User) -> Result<User, io::Error> {
     let result: Option<User> = user_repo
         .context
         .db
@@ -18,6 +18,7 @@ pub async fn insert_user(user_repo:&UserRepository, task_repo:&TaskRepository, u
     let user = result.ok_or(io::Error::new(io::ErrorKind::NotFound, "User insert fail"))?;
 
     task_repo.insert_extask_list_for_user("Tasks assigned to you", &user.id()).await?;
+    agenda_repo.insert_exagenda_for_user("Events assigned to you",&user.id()).await?;
     
     Ok(user)
 }
