@@ -1,3 +1,4 @@
+pub mod draft_collaboration;
 pub mod invitation_token;
 pub mod user;
 pub mod util;
@@ -5,10 +6,12 @@ pub mod util;
 #[cfg(test)]
 mod test {
     use crate::{
-        api::handler::agenda, db::{
+        api::handler::agenda,
+        db::{
             model::{status::StatusPool, user::User},
             repository::{agenda::AgendaRepository, task::TaskRepository, user::UserRepository},
-        }, usecase::user::insert_user
+        },
+        usecase::user::insert_user,
     };
 
     fn create_user() -> User {

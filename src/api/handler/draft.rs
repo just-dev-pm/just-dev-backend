@@ -1,8 +1,16 @@
-use futures::future::try_join_all;
+use axum_ycrdt_websocket::{
+    broadcast::BroadcastGroup,
+    ws::{AxumSink, AxumStream},
+};
+use futures::{future::try_join_all, StreamExt};
 use std::{io, sync::Arc};
+use yrs::{
+    updates::encoder::{Encoder, EncoderV1},
+    ReadTxn, Transact,
+};
 
 use axum::{
-    extract::{Path, State},
+    extract::{ws::WebSocket, Path, State, WebSocketUpgrade},
     http::StatusCode,
     response::IntoResponse,
     Json,
@@ -13,8 +21,8 @@ use tokio::sync::Mutex;
 
 use crate::{
     api::{app::AppState, model::draft::Draft},
-    db::model::draft::DraftPayload,
-    usecase::util::auth_backend::AuthBackend,
+    db::{model::draft::DraftPayload, repository::draft::DraftRepository},
+    usecase::{draft_collaboration::DraftCollaborationManager, util::auth_backend::AuthBackend},
 };
 
 use super::util::{authorize_against_project_id, authorize_against_user_id, draft_db_to_api};
@@ -301,4 +309,67 @@ pub async fn create_draft_for_project(
             }
         }
     }
+}
+
+pub async fn draft_ws_handler(
+    ws: WebSocketUpgrade,
+    auth_session: AuthSession<AuthBackend>,
+    Path(draft_id): Path<String>,
+    State(state): State<Arc<Mutex<AppState>>>,
+) -> impl IntoResponse {
+    let state = state.lock().await;
+
+    let draft_collaboration_manager = state.draft_collaboration_manager.clone();
+    let draft_repo = state.draft_repo.clone();
+
+    // TODO Authorize aginst draft
+    ws.on_upgrade(move |socket| {
+        handle_socket(socket, draft_id, draft_collaboration_manager, draft_repo)
+    })
+}
+
+async fn handle_socket(
+    socket: WebSocket,
+    draft_id: String,
+    draft_collaboration_manager: Arc<Mutex<DraftCollaborationManager>>,
+    draft_repo: DraftRepository,
+) {
+    let (sender, receiver) = socket.split();
+    let sender = Arc::new(Mutex::new(AxumSink::from(sender)));
+    let receiver = AxumStream::from(receiver);
+
+    let bcast: Arc<BroadcastGroup> = draft_collaboration_manager
+        .lock()
+        .await
+        .get_room(draft_id.clone(), &draft_repo)
+        .await
+        .unwrap();
+
+    let sub = bcast.subscribe(sender, receiver);
+
+    // TODO; fix future is not send error
+    // match sub.completed().await {
+    //     Ok(_) => {
+    //         let old_draft = draft_repo.query_draft_by_id(&draft_id).await;
+    //         match old_draft {
+    //             Err(_) => (),
+    //             Ok(old_draft) => {
+    //                 let awareness = bcast.awareness().read().await;
+    //                 let doc = awareness.doc();
+    //                 let txn = doc.transact();
+    //                 let rev = txn.snapshot();
+    //                 let mut encoder = EncoderV1::new();
+    //                 txn.encode_state_from_snapshot(&rev, &mut encoder).unwrap();
+    //                 let update = encoder.to_vec();
+    //                 draft_repo
+    //                     .update_draft(DraftPayload {
+    //                         content: update,
+    //                         ..old_draft
+    //                     })
+    //                     .await;
+    //             }
+    //         }
+    //     }
+    //     Err(_) => (),
+    // }
 }

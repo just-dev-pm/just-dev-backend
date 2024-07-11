@@ -20,10 +20,15 @@ use crate::{
     db::{
         model::agenda::Agenda,
         repository::{
-            agenda::AgendaRepository, draft::DraftRepository, notification::NotificationRepository, project::ProjectRepository, requirement::RequirementRepository, task::TaskRepository, user::UserRepository
+            agenda::AgendaRepository, draft::DraftRepository, notification::NotificationRepository,
+            project::ProjectRepository, requirement::RequirementRepository, task::TaskRepository,
+            user::UserRepository,
         },
     },
-    usecase::{invitation_token::InvitationTokenRepository, util::auth_backend::AuthBackend},
+    usecase::{
+        draft_collaboration::DraftCollaborationManager,
+        invitation_token::InvitationTokenRepository, util::auth_backend::AuthBackend,
+    },
 };
 
 use super::handler::{
@@ -33,8 +38,8 @@ use super::handler::{
     },
     auth::{login, logout, signup},
     draft::{
-        create_draft_for_project, create_draft_for_user, get_draft_info, get_drafts_for_project,
-        get_drafts_for_user, patch_draft_info,
+        create_draft_for_project, create_draft_for_user, draft_ws_handler, get_draft_info,
+        get_drafts_for_project, get_drafts_for_user, patch_draft_info,
     },
     event::{create_event_for_agenda, delete_event, get_events_for_agenda, patch_event},
     notification::{get_notifications, handle_notification},
@@ -68,6 +73,7 @@ pub struct AppState {
     pub notif_repo: NotificationRepository,
     pub requ_repo: RequirementRepository,
     pub invitation_token_repo: Arc<Mutex<InvitationTokenRepository>>,
+    pub draft_collaboration_manager: Arc<Mutex<DraftCollaborationManager>>,
 }
 
 pub struct App {
@@ -90,6 +96,7 @@ impl App {
             notif_repo: NotificationRepository::new().await,
             requ_repo: RequirementRepository::new().await,
             invitation_token_repo: Arc::new(Mutex::new(InvitationTokenRepository::default())),
+            draft_collaboration_manager: Arc::new(Mutex::new(DraftCollaborationManager::new())),
         }));
 
         let session_store = MemoryStore::default();
@@ -116,6 +123,7 @@ impl App {
 
         App {
             router: Router::new()
+                .route("/ws/drafts/:draft_id", get(draft_ws_handler))
                 .route(
                     "/api/projects/:project_id/requirements/:requirement_id",
                     get(get_requirement_info)
