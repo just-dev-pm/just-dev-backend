@@ -6,7 +6,7 @@ use crate::db::{db_context::DbContext, model::requirement::Requirement};
 
 use super::utils::{
     create_resource, custom_io_error, delete_resource, exec_query, get_io_error, select_resourse,
-    unwrap_thing,
+    unwrap_thing, update_resource,
 };
 
 #[derive(Clone)]
@@ -53,10 +53,15 @@ impl RequirementRepository {
         Ok(requ)
     }
 
-    pub async fn delete_requ_from_project(
+    pub async fn delete_requ_from_project(&self, requ_id: &str) -> Result<Requirement, io::Error> {
+        Ok(delete_resource::<Requirement>(&self.context, requ_id, "requirement").await?)
+    }
+
+    pub async fn update_requ(
         &self,
         requ_id: &str,
+        requ: &Requirement,
     ) -> Result<Requirement, io::Error> {
-        Ok(delete_resource::<Requirement>(&self.context, requ_id, "requirement").await?)
+        Ok(update_resource(&self.context, requ_id, requ, "requirement").await?)
     }
 }
