@@ -31,9 +31,11 @@ impl DraftRepository {
         DraftPayload::from(draft.ok_or(io::Error::new(io::ErrorKind::NotFound, "Draft not found"))?)
     }
 
-    
-
-    pub async fn insert_draft_for_user(&self, name: &str, user_id: &str) -> Result<DraftPayload, io::Error> {
+    pub async fn insert_draft_for_user(
+        &self,
+        name: &str,
+        user_id: &str,
+    ) -> Result<DraftPayload, io::Error> {
         let draft = Draft::new(name.to_string(), &vec![]);
         let result: Option<Draft> = self
             .context
@@ -44,12 +46,24 @@ impl DraftRepository {
             .map_err(get_io_error)?
             .pop();
         let draft = DraftPayload::from(result.ok_or(custom_io_error("draft query failed"))?)?;
-        let _ = self.context.db.query(format!("relate user:{user_id} -> own -> draft:{}", draft.id.as_ref().unwrap())).await.map_err(get_io_error)?;   
+        let _ = self
+            .context
+            .db
+            .query(format!(
+                "relate user:{user_id} -> own -> draft:{}",
+                draft.id.as_ref().unwrap()
+            ))
+            .await
+            .map_err(get_io_error)?;
 
         Ok(draft)
     }
 
-    pub async fn insert_draft_for_project(&self, name: &str, project_id: &str) -> Result<DraftPayload, io::Error> {
+    pub async fn insert_draft_for_project(
+        &self,
+        name: &str,
+        project_id: &str,
+    ) -> Result<DraftPayload, io::Error> {
         let draft = Draft::new(name.to_string(), &vec![]);
         let result: Option<Draft> = self
             .context
@@ -60,12 +74,18 @@ impl DraftRepository {
             .map_err(get_io_error)?
             .pop();
         let draft = DraftPayload::from(result.ok_or(custom_io_error("draft query failed"))?)?;
-        let _ = self.context.db.query(format!("relate project:{project_id} -> own -> draft:{}", draft.id.as_ref().unwrap())).await.map_err(get_io_error)?;   
+        let _ = self
+            .context
+            .db
+            .query(format!(
+                "relate project:{project_id} -> own -> draft:{}",
+                draft.id.as_ref().unwrap()
+            ))
+            .await
+            .map_err(get_io_error)?;
 
         Ok(draft)
     }
-
-
 
     pub async fn update_draft(&self, draft: DraftPayload) -> Result<DraftPayload, io::Error> {
         let result: Option<Draft> = self
@@ -83,5 +103,4 @@ impl DraftRepository {
             .map_err(get_io_error)?;
         DraftPayload::from(result.ok_or(io::Error::new(io::ErrorKind::Other, "Draft update fail"))?)
     }
-
 }

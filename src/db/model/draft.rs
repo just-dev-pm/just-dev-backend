@@ -1,12 +1,10 @@
-
 use std::io;
 
+use base64_lib::{decode, encode};
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Bytes, Id, Thing, Value};
-use base64_lib::{encode, decode};
 
 use crate::db::repository::utils::custom_io_error;
-
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Draft {
@@ -15,17 +13,17 @@ pub struct Draft {
     pub content: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DraftPayload {
     pub id: Option<String>,
     pub name: String,
     pub content: Vec<u8>,
-
 }
 
 impl Draft {
     pub fn new(name: String, content: &Vec<u8>) -> Self {
         Draft {
-            id: None, 
+            id: None,
             name,
             content: encode(content),
         }
@@ -33,7 +31,10 @@ impl Draft {
 
     pub fn new_with_id(id: &str, name: String, content: &Vec<u8>) -> Self {
         Draft {
-            id: Some(Thing{tb: "draft".to_string(), id: Id::String(id.to_string())}),
+            id: Some(Thing {
+                tb: "draft".to_string(),
+                id: Id::String(id.to_string()),
+            }),
             name,
             content: encode(content),
         }
@@ -45,12 +46,8 @@ impl Draft {
 
     pub fn from(draft: DraftPayload) -> Draft {
         match draft.id {
-            Some(id) => {
-                Self::new_with_id(&id, draft.name, &draft.content)
-            }
-            None => {
-                Self::new(draft.name, &draft.content)
-            }
+            Some(id) => Self::new_with_id(&id, draft.name, &draft.content),
+            None => Self::new(draft.name, &draft.content),
         }
     }
 }

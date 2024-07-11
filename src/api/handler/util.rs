@@ -3,7 +3,10 @@ use axum_login::{AuthSession, AuthUser};
 use surrealdb::sql::Thing;
 
 use crate::{
-    api::model::{asset::Asset, status::{IndexedStatusItem, StatusItem}},
+    api::model::{
+        asset::Asset,
+        status::{IndexedStatusItem, StatusItem},
+    },
     db::{
         model::{
             project::Project,
@@ -256,10 +259,12 @@ pub fn project_api_to_db(
         },
     }
 }
+
 use crate::db::model::notification::NotificationSource;
 
 pub fn notif_db_to_api(
-    notif: crate::db::model::notification::Notification, source: NotificationSource
+    notif: crate::db::model::notification::Notification,
+    source: NotificationSource,
 ) -> crate::api::model::notification::Notification {
     crate::api::model::notification::Notification {
         id: unwrap_thing(notif.id.unwrap()),
@@ -272,4 +277,18 @@ pub fn notif_db_to_api(
             NotificationSource::Draft(id) => Asset::Draft { id },
         },
     }
+}
+
+pub fn draft_db_to_api(
+    draft: crate::db::model::draft::DraftPayload,
+) -> Option<crate::api::model::draft::Draft> {
+    let id = match draft.id {
+        None => return None,
+        Some(id) => id,
+    };
+
+    Some(crate::api::model::draft::Draft {
+        id,
+        name: draft.name,
+    })
 }
