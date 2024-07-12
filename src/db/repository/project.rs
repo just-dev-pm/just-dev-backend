@@ -1,4 +1,3 @@
-
 use surrealdb::sql::Thing;
 
 use crate::db::db_context::DbContext;
@@ -11,7 +10,6 @@ use crate::db::repository::utils::*;
 pub struct ProjectRepository {
     context: DbContext,
 }
-
 
 impl ProjectRepository {
     pub async fn new() -> ProjectRepository {
@@ -37,7 +35,11 @@ impl ProjectRepository {
         create_resource(&self.context, project, "project").await
     }
 
-    pub async fn update_project(&self, project: &Project, project_id: &str) -> Result<Project, io::Error> {
+    pub async fn update_project(
+        &self,
+        project: &Project,
+        project_id: &str,
+    ) -> Result<Project, io::Error> {
         let result: Option<Project> = self
             .context
             .db
@@ -119,13 +121,19 @@ impl ProjectRepository {
         Ok(unwrap_things(agendas.unwrap_or_default()))
     }
 
-    pub async fn query_task_list_by_id(&self, project_id: &str) -> Result<Vec<DbModelId>, io::Error> {
+    pub async fn query_task_list_by_id(
+        &self,
+        project_id: &str,
+    ) -> Result<Vec<DbModelId>, io::Error> {
         let mut response = exec_query(
             &self.context,
-            format!("select ->own->task_list as task_lists from user where id == project:{project_id}"),
+            format!(
+                "select ->own->task_list as task_lists from user where id == project:{project_id}"
+            ),
         )
         .await?;
-        let task_lists: Option<Vec<Thing>> = response.take((0, "task_lists")).map_err(get_io_error)?;
+        let task_lists: Option<Vec<Thing>> =
+            response.take((0, "task_lists")).map_err(get_io_error)?;
 
         Ok(unwrap_things(task_lists.unwrap_or_default()))
     }
@@ -135,13 +143,16 @@ impl ProjectRepository {
             &self.context,
             format!("select ->own->draft as drafts from user where id == project:{project_id}"),
         )
-            .await?;
+        .await?;
         let agendas: Option<Vec<Thing>> = response.take((0, "drafts")).map_err(get_io_error)?;
 
         Ok(unwrap_things(agendas.unwrap_or_default()))
     }
 
-    pub async fn query_requ_by_project_id(&self, project_id: &str) -> Result<Vec<DbModelId>, io::Error> {
+    pub async fn query_requ_by_project_id(
+        &self,
+        project_id: &str,
+    ) -> Result<Vec<DbModelId>, io::Error> {
         let mut response = exec_query(
             &self.context,
             format!("select ->require->requirement as requs from project where id == project:{project_id}"),

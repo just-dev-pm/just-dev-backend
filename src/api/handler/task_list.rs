@@ -7,6 +7,7 @@ use axum::{
     Json,
 };
 use axum_login::AuthSession;
+use futures::{future::try_join_all, Future};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
@@ -15,7 +16,10 @@ use crate::{
     usecase::util::auth_backend::AuthBackend,
 };
 
-use super::util::{authorize_against_task_list_id, task_list_db_to_api};
+use super::util::{
+    authorize_against_project_id, authorize_against_task_list_id, authorize_against_user_id,
+    task_list_db_to_api,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetTaskListInfoResponse {
@@ -64,7 +68,48 @@ pub async fn get_task_lists_for_project(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(project_id): Path<String>,
 ) -> impl IntoResponse {
-    todo!()
+    let state = state.lock().await;
+    if let Some(value) =
+        authorize_against_project_id(auth_session, &state.project_repo, &project_id).await
+    {
+        return value;
+    }
+
+    let db_task_lists = state.project_repo.query_task_list_by_id(&project_id).await;
+
+    let db_task_lists = match db_task_lists {
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(task_lists) => task_lists,
+    };
+
+    let db_task_list_futures: Vec<_> = db_task_lists
+        .into_iter()
+        .map(|id| {
+            let task_repo = &state.task_repo;
+            async move { task_repo.query_task_list_by_id(&id).await }
+        })
+        .collect();
+
+    let db_task_lists = try_join_all(db_task_list_futures).await;
+
+    let db_task_lists = match db_task_lists {
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(task_lists) => task_lists,
+    };
+
+    let api_task_lists: Option<Vec<_>> = db_task_lists
+        .into_iter()
+        .map(|task_list| task_list_db_to_api(task_list))
+        .collect();
+
+    match api_task_lists {
+        None => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Some(task_lists) => (
+            StatusCode::OK,
+            Json(GetTaskListsForProjectResponse { task_lists }),
+        )
+            .into_response(),
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -75,9 +120,47 @@ pub struct GetTaskListsForUserResponse {
 pub async fn get_task_lists_for_user(
     auth_session: AuthSession<AuthBackend>,
     State(state): State<Arc<Mutex<AppState>>>,
-    Path(uer_id): Path<String>,
+    Path(user_id): Path<String>,
 ) -> impl IntoResponse {
-    todo!()
+    let state = state.lock().await;
+    if let Some(value) = authorize_against_user_id(auth_session, &user_id) {
+        return value;
+    }
+
+    let db_task_lists = state.user_repo.query_task_list_by_id(&user_id).await;
+    let db_task_lists = match db_task_lists {
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(task_lists) => task_lists,
+    };
+
+    let db_task_list_futures: Vec<_> = db_task_lists
+        .into_iter()
+        .map(|id| {
+            let task_repo = &state.task_repo;
+            async move { task_repo.query_task_list_by_id(&id).await }
+        })
+        .collect();
+
+    let db_task_lists = try_join_all(db_task_list_futures).await;
+
+    let db_task_lists = match db_task_lists {
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(task_lists) => task_lists,
+    };
+
+    let api_task_lists: Option<Vec<_>> = db_task_lists
+        .into_iter()
+        .map(|task_list| task_list_db_to_api(task_list))
+        .collect();
+
+    match api_task_lists {
+        None => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Some(task_lists) => (
+            StatusCode::OK,
+            Json(GetTaskListsForUserResponse { task_lists }),
+        )
+            .into_response(),
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -114,10 +197,37 @@ pub struct CreateTaskListForUserResponse {
 pub async fn create_task_list_for_user(
     auth_session: AuthSession<AuthBackend>,
     State(state): State<Arc<Mutex<AppState>>>,
-    Path(uer_id): Path<String>,
+    Path(user_id): Path<String>,
     Json(req): Json<CreateTaskListForUserRequest>,
 ) -> impl IntoResponse {
-    todo!()
+    let state = state.lock().await;
+
+    if let Some(value) = authorize_against_user_id(auth_session, &user_id) {
+        return value;
+    }
+
+    let returned_db_task_list = state
+        .task_repo
+        .insert_task_list_for_user(&req.name, &user_id)
+        .await;
+
+    let returned_db_task_list = match returned_db_task_list {
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(task_list) => task_list,
+    };
+
+    let api_task_list = match task_list_db_to_api(returned_db_task_list) {
+        None => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Some(task_list) => task_list,
+    };
+
+    (
+        StatusCode::OK,
+        Json(CreateTaskListForUserResponse {
+            task_list: api_task_list,
+        }),
+    )
+        .into_response()
 }
 
 pub async fn delete_task_list(
