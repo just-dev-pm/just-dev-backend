@@ -101,12 +101,14 @@ impl ProjectRepository {
             .context
             .db
             .query(format!(
-                "SELECT in.* FROM join WHERE out.id == project:{} AND admin == false",
-                id
+                "SELECT <-user.* as users from join where out.id == project:{id} AND admin == false"
             ))
             .await
             .unwrap();
-        let members: Vec<User> = response.take((0, "in")).unwrap(); //TODO: add error handling
+        let members = response
+            .take::<Option<Vec<User>>>("users")
+            .map_err(get_io_error)?
+            .unwrap_or_default(); //TODO: add error handling
         Ok(members)
     }
 

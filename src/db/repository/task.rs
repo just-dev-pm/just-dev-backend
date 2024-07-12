@@ -29,6 +29,7 @@ impl TaskRepository {
         }
     }
 
+    #[deprecated]
     pub async fn query_task_is_following(&self, task_id: &str) -> Result<Option<DbModelId>, io::Error> {
         let mut response = exec_query(
             &self.context,
@@ -65,9 +66,14 @@ impl TaskRepository {
         Ok(source)
     }
 
-    pub async fn query_task_by_id(&self, id: &str, entity: Entity) -> Result<Task, io::Error> {
+    pub async fn query_task_by_id(&self, id: &str, task_list_id: &str) -> Result<Task, io::Error> {
         let mut task: Task = select_resourse(&self.context, id, "task").await?;
-
+        let source = self.query_task_list_source(task_list_id).await?;
+        let entity = match source.tb.as_str() {
+            "user" => Entity::User,
+            "project" => Entity::Project,
+            _ => return Err(custom_io_error("Task source not found")),
+        };
         let mut response = self
             .context
             .db
@@ -159,26 +165,32 @@ impl TaskRepository {
         Ok(task_list)
     }
 
-    pub async fn assign_task_to_user(
-        &self,
-        task_id: &str,
-        user_id: &str,
-    ) -> Result<Task, io::Error> {
-        let mut task = self.query_task_by_id(task_id, Entity::Project).await?;
-        task.id = None;
-        let task = self.insert_task_for_task_list(&task, user_id).await?; // insert task into user's special tasklist
+    // #[deprecated]
+    // pub async fn assign_task_to_user(
+    //     &self,
+    //     task_id: &str,
+    //     user_id: &str,
+    // ) -> Result<Task, io::Error> {
+    //     let mut task = self.query_task_by_id(task_id, Entity::Project).await?;
+    //     task.id = None;
+    //     let task = self.insert_task_for_task_list(&task, user_id).await?; // insert task into user's special tasklist
 
-        let _ = self
-            .context
-            .db
-            .query(format!(
-                "relate task:{} -> follow -> task:{}",
-                unwrap_thing(task.id.clone().unwrap()),
-                task_id
-            ))
-            .await
-            .map_err(|e| get_io_error(e))?;
-        Ok(task)
+    //     let _ = self
+    //         .context
+    //         .db
+    //         .query(format!(
+    //             "relate task:{} -> follow -> task:{}",
+    //             unwrap_thing(task.id.clone().unwrap()),
+    //             task_id
+    //         ))
+    //         .await
+    //         .map_err(|e| get_io_error(e))?;
+    //     Ok(task)
+    // }
+
+    pub async fn assign_task_to_user(&self, task_id: &str, user_id: &str) -> Result<(), io::Error> {
+        let _ = exec_query(&self.context, format!("relate task:{task_id} -> assign -> user:{user_id}")).await?;
+        Ok(())
     }
 
     pub async fn query_task_list_by_id(&self, id: &str) -> Result<TaskList, io::Error> {
@@ -279,46 +291,58 @@ impl TaskRepository {
         Ok(task)
     }
 
-    pub async fn query_assignees_of_task(
-        &self,
-        event_id: &str,
-    ) -> Result<Vec<DbModelId>, io::Error> {
-        let mut response = exec_query(
-            &self.context,
-            format!(
-                "(SELECT <-follow<-task<-have<-task_list<-own<-user as assignees FROM event WHERE id == task:{}).assignees",
-                event_id
-            ),
-        )
-        .await?;
-        let assignees = response
-            .take::<Option<Vec<Thing>>>(0)
-            .map_err(get_io_error)?
-            .unwrap_or_default();
+    // #[deprecated]
+    // pub async fn query_assignees_of_task(
+    //     &self,
+    //     event_id: &str,
+    // ) -> Result<Vec<DbModelId>, io::Error> {
+    //     let mut response = exec_query(
+    //         &self.context,
+    //         format!(
+    //             "(SELECT <-follow<-task<-have<-task_list<-own<-user as assignees FROM event WHERE id == task:{}).assignees",
+    //             event_id
+    //         ),
+    //     )
+    //     .await?;
+    //     let assignees = response
+    //         .take::<Option<Vec<Thing>>>(0)
+    //         .map_err(get_io_error)?
+    //         .unwrap_or_default();
+    //     Ok(unwrap_things(assignees))
+    // }
+
+    pub async fn query_assignees_of_task(&self, task_id: &str) -> Result<Vec<DbModelId>, io::Error> {
+        let mut response = exec_query(&self.context, format!("SELECT ->assign->user as assignees FROM task where id == task:{}", task_id)).await?;
+        let assignees = response.take::<Option<Vec<Thing>>>("assignees").map_err(get_io_error)?.unwrap_or_default();
         Ok(unwrap_things(assignees))
-    }
+    } 
 
-    pub async fn deassign_task_for_user(
-        &self,
-        event_id: &str,
-        user_id: &str,
-    ) -> Result<Task, io::Error> {
-        let mut response = exec_double_query(
-            &self.context, 
-            format!("(select <-follow<-task as events from event where id == event:{event_id}).events"), 
-            format!("(select ->have->task_list as assigned from agenda where id == agenda:{user_id}).assigned")).await?;
-        let events = unwrap_things(response
-            .take::<Option<Vec<Thing>>>(0)
-            .map_err(get_io_error)?
-            .unwrap_or_default());
-        let user_assigned = unwrap_things(response.take::<Option<Vec<Thing>>>(1).map_err(get_io_error)?.unwrap_or_default());
-        for event in events {
-            if user_assigned.contains(&event) {
-                return Ok(delete_resource::<Task>(&self.context, &event, "task").await?);
-            }
-        }
-        Err(custom_io_error("Assigning relation not found"))
+    // #[deprecated]
+    // pub async fn deassign_task_for_user(
+    //     &self,
+    //     event_id: &str,
+    //     user_id: &str,
+    // ) -> Result<Task, io::Error> {
+    //     let mut response = exec_double_query(
+    //         &self.context, 
+    //         format!("(select <-follow<-task as events from event where id == event:{event_id}).events"), 
+    //         format!("(select ->have->task_list as assigned from agenda where id == agenda:{user_id}).assigned")).await?;
+    //     let events = unwrap_things(response
+    //         .take::<Option<Vec<Thing>>>(0)
+    //         .map_err(get_io_error)?
+    //         .unwrap_or_default());
+    //     let user_assigned = unwrap_things(response.take::<Option<Vec<Thing>>>(1).map_err(get_io_error)?.unwrap_or_default());
+    //     for event in events {
+    //         if user_assigned.contains(&event) {
+    //             return Ok(delete_resource::<Task>(&self.context, &event, "task").await?);
+    //         }
+    //     }
+    //     Err(custom_io_error("Assigning relation not found"))
+    // }
 
+    pub async fn deassign_task_for_user(&self, task_id: &str, user_id: &str) -> Result<(), io::Error> {
+        let _ = exec_query(&self.context, format!("DELETE task:{task_id}->assign WHERE out=user:{user_id}")).await?;
+        Ok(())
     }
 
     pub async fn insert_task_list_for_project(&self, project_id: &str, name: &str) -> Result<TaskList, io::Error> {
