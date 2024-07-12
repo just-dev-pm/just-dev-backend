@@ -141,7 +141,7 @@ impl ProjectRepository {
     pub async fn query_draft_by_id(&self, project_id: &str) -> Result<Vec<DbModelId>, io::Error> {
         let mut response = exec_query(
             &self.context,
-            format!("select ->own->draft as drafts from user where id == project:{project_id}"),
+            format!("select ->own->draft as drafts from project where id == project:{project_id}"),
         )
         .await?;
         let agendas: Option<Vec<Thing>> = response.take((0, "drafts")).map_err(get_io_error)?;
