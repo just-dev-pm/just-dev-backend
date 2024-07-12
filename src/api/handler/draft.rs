@@ -377,6 +377,10 @@ async fn handle_socket(
                 }
             }
         }
-        Err(_) => (),
+        Err(err) => {
+            dbg!(err);
+
+            ()
+        }
     }
 }

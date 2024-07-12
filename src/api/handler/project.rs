@@ -449,7 +449,9 @@ pub async fn get_token_info(
         Some(kv) => kv.1.clone(),
     };
 
-    if let Some(value) = authorize_against_user_id(auth_session, &invitation_info.inviter) {
+    dbg!(&invitation_info);
+
+    if let Some(value) = authorize_against_user_id(auth_session, &invitation_info.invitee) {
         return value;
     }
 
