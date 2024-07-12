@@ -256,6 +256,23 @@ impl TaskRepository {
         Ok(tasks)
     }
 
+    pub async fn query_task_incoming_links_by_task_id(
+        &self,
+        task_id: &str,
+    ) -> Result<Vec<TaskLink>, io::Error> {
+
+        let mut response = exec_query(
+            &self.context,
+            format!("select * from link where out.id == task:{task_id}"),
+        )
+        .await?;
+        let tasks: Vec<_> = response
+            .take::<Vec<TaskLink>>(0)
+            .map_err(get_io_error)?;
+
+        Ok(tasks)
+    }
+
     pub async fn insert_task_link(&self, former: &str, latter: &str, kind: &str) -> Result<TaskLink, io::Error> {
         let mut response = exec_query(
             &self.context,
