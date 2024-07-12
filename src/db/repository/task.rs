@@ -29,6 +29,42 @@ impl TaskRepository {
         }
     }
 
+    pub async fn query_task_is_following(&self, task_id: &str) -> Result<Option<DbModelId>, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!(
+                "SELECT ->follow->task as tasks FROM task WHERE id == task:{}",
+                task_id
+            ),
+        ).await?;
+        let tasks = response
+            .take::<Option<Vec<Thing>>>("tasks")
+            .map_err(get_io_error)?
+            .unwrap_or_default();
+        if tasks.len() == 0 {
+            return Ok(None);
+        } else {
+            return Ok(Some(unwrap_thing(tasks[0].clone())));
+        }
+    }
+
+    pub async fn query_task_list_source(&self, task_list_id: &str) -> Result<Thing, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!(
+                "SELECT <-own.in as source FROM task_list WHERE id == task_list:{}",
+                task_list_id
+            ),
+        ).await?;
+        let source = response
+            .take::<Option<Vec<Thing>>>("source")
+            .map_err(get_io_error)?
+            .map(|mut v| v.pop())
+            .ok_or(custom_io_error("Task list source not found"))?
+            .ok_or(custom_io_error("Task list source not found"))?;
+        Ok(source)
+    }
+
     pub async fn query_task_by_id(&self, id: &str, entity: Entity) -> Result<Task, io::Error> {
         let mut task: Task = select_resourse(&self.context, id, "task").await?;
 

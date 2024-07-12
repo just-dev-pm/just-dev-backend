@@ -1,7 +1,7 @@
 use axum_ycrdt_websocket::{broadcast::BroadcastGroup, AwarenessRef};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
-use yrs::{sync::Awareness, updates::decoder::Decode, Doc, Options, StateVector, Transact, Update};
+use yrs::{sync::Awareness, updates::decoder::Decode, Doc, Options, Transact, Update};
 
 use crate::db::{model::draft::DraftPayload, repository::draft::DraftRepository};
 

@@ -431,4 +431,21 @@ mod test_user {
             .unwrap();
         assert_eq!(result.name, "insert task list test")
     }
+
+    #[tokio::test]
+    async fn test_query_task_is_following() {
+        let repo = TaskRepository::new().await;
+        let result = repo.query_task_is_following("orig").await.unwrap();
+        assert_eq!(result.unwrap(), "xiwen");
+        let result = repo.query_task_is_following("xiwen").await.unwrap();
+        assert_eq!(result, None);
+    }
+
+    #[tokio::test]
+    async fn test_query_task_list_source() {
+        let repo = TaskRepository::new().await;
+        let result = repo.query_task_list_source("xiwen").await.unwrap();
+        assert_eq!(result.id.to_string(), "xiwen");
+
+    }
 }
