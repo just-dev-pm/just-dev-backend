@@ -10,8 +10,6 @@ pub mod utils;
 #[cfg(test)]
 mod test_user {
 
-    use std::result;
-
     use axum_login::AuthUser;
 
     use crate::{
@@ -26,7 +24,7 @@ mod test_user {
                 notification::NotificationRepository,
                 project::ProjectRepository,
                 requirement::RequirementRepository,
-                task::{Entity, TaskRepository},
+                task::TaskRepository,
                 user::UserRepository,
                 utils::unwrap_thing,
             },
@@ -278,7 +276,6 @@ mod test_user {
             .assign_task_to_user("xiwen", &user_id)
             .await
             .unwrap();
-        
     }
 
     #[tokio::test]
@@ -369,7 +366,10 @@ mod test_user {
         let result = repo.insert_event_for_agenda(&event, "xiwen").await.unwrap();
         assert_eq!(result.description, "test");
         let repo = AgendaRepository::new().await;
-        let result = repo.delete_event(&unwrap_thing(result.id.clone().unwrap())).await.unwrap();
+        let result = repo
+            .delete_event(&unwrap_thing(result.id.clone().unwrap()))
+            .await
+            .unwrap();
         assert_eq!(result.name, "xiwen");
     }
 
@@ -447,5 +447,12 @@ mod test_user {
         let repo = TaskRepository::new().await;
         let result = repo.query_task_list_source("xiwen").await.unwrap();
         assert_eq!(result.id.to_string(), "xiwen");
+    }
+
+    #[tokio::test]
+    async fn test_query_assigned_tasks_by_user() {
+        let repo = TaskRepository::new().await;
+        let result = repo.query_assigned_tasks_by_user("xiwen").await.unwrap();
+        assert!(result.contains(&("xiwen".to_owned(), "dc".to_owned())));
     }
 }

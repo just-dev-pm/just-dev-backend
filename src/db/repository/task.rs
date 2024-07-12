@@ -1,5 +1,6 @@
 use std::io;
 
+use futures::future::try_join_all;
 use surrealdb::sql::Thing;
 
 use crate::db::{
@@ -401,7 +402,7 @@ impl TaskRepository {
         let mut response = exec_query(
             &self.context,
             format!(
-                "SELECT ->assign->task as tasks FROM user where id == user:{}",
+                "SELECT <-assign<-task as tasks FROM user where id == user:{}",
                 user_id
             )
         ).await?;
@@ -409,8 +410,11 @@ impl TaskRepository {
             .take::<Option<Vec<Thing>>>("tasks")
             .map_err(get_io_error)?
             .unwrap_or_default());
-        // let task_lis
-        // let task_lists = 
-        todo!()
+        let futures = tasks.into_iter().map(|task| async move {
+            let task_list = self.query_task_list_id_by_task(&task).await?;
+            Ok::<_, io::Error>((task, task_list))
+        }).collect::<Vec<_>>();
+        Ok(try_join_all(futures).await?) 
+    
     }
 }
