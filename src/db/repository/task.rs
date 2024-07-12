@@ -381,4 +381,36 @@ impl TaskRepository {
             .unwrap_or_default();
         Ok(unwrap_things(tasks))
     }
+
+    pub async fn query_task_list_id_by_task(&self, task_id: &str) -> Result<DbModelId, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!(
+                "SELECT <-have<-task_list as task_lists FROM task where id == task:{task_id}"
+            )
+        ).await?;
+        let mut task_lists = response
+            .take::<Option<Vec<Thing>>>("task_lists")
+            .map_err(get_io_error)?
+            .unwrap_or_default();
+        Ok(unwrap_thing(task_lists.pop().ok_or(custom_io_error("Task has no parent task list!"))?))
+    }
+
+    pub async fn query_assigned_tasks_by_user(&self, user_id: &str) -> Result<Vec<(DbModelId, DbModelId)>, io::Error> {
+        // former is task id, latter is tasklist id
+        let mut response = exec_query(
+            &self.context,
+            format!(
+                "SELECT ->assign->task as tasks FROM user where id == user:{}",
+                user_id
+            )
+        ).await?;
+        let tasks = unwrap_things(response
+            .take::<Option<Vec<Thing>>>("tasks")
+            .map_err(get_io_error)?
+            .unwrap_or_default());
+        // let task_lis
+        // let task_lists = 
+        todo!()
+    }
 }
