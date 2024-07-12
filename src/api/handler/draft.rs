@@ -338,12 +338,16 @@ async fn handle_socket(
     let sender = Arc::new(Mutex::new(AxumSink::from(sender)));
     let receiver = AxumStream::from(receiver);
 
-    let bcast: Arc<BroadcastGroup> = draft_collaboration_manager
+    let bcast = draft_collaboration_manager
         .lock()
         .await
         .get_room(draft_id.clone(), &draft_repo)
-        .await
-        .unwrap();
+        .await;
+
+    let bcast = match bcast {
+        Some(bcast) => bcast,
+        None => return,
+    };
 
     let sub = bcast.subscribe(sender, receiver);
 
