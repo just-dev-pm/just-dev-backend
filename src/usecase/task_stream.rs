@@ -7,7 +7,7 @@ async fn refresh_task_status(
     task_id: &String,
     task_repo: &TaskRepository,
 ) -> Result<(), std::io::Error> {
-    let db_task = task_repo
+    let mut db_task = task_repo
         .query_task_by_id(&task_id)
         .await
         .map_err(|err| io::Error::new(ErrorKind::Other, err.to_string()))?;
@@ -57,9 +57,8 @@ async fn refresh_task_status(
             return Ok(());
         }
 
-        let mut task_clone = db_task.clone();
-        task_clone.complete = true;
-        task_repo.update_task_by_id(&task_id, &task_clone).await?;
+        db_task.complete = true;
+        task_repo.update_task_by_id(&task_id, &db_task).await?;
     }
 
     Ok(())
