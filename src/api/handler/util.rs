@@ -142,23 +142,45 @@ pub async fn authorize_against_event_id(
 }
 
 pub async fn authorize_against_task_list_id(
-    auth_session: &AuthSession<AuthBackend>,
-    user_repo: &UserRepository,
+    auth_session: AuthSession<AuthBackend>,
+    project_repo: &ProjectRepository,
+    task_repo: &TaskRepository,
     task_list_id: &str,
 ) -> Option<axum::http::Response<axum::body::Body>> {
     let user_id = match auth_session.user.clone() {
         None => return Some(StatusCode::UNAUTHORIZED.into_response()),
         Some(user) => user.id(),
     };
-    let task_lists = match user_repo.query_task_list_by_id(&user_id).await {
-        Ok(task_lists) => task_lists,
-        Err(_) => return Some(StatusCode::UNAUTHORIZED.into_response()),
-    };
-    if task_lists.contains(&task_list_id.to_string()) {
-        None
-    } else {
-        Some(StatusCode::UNAUTHORIZED.into_response())
+
+    let source = task_repo.query_task_list_source(&task_list_id).await;
+    if let Err(err) = source {
+        return Some((StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response());
     }
+    let source = source.unwrap();
+    match source.tb.as_str() {
+        "project" => {
+            let project_id = source.id.to_string();
+            if let Some(value) =
+                authorize_against_project_id(auth_session, project_repo, &project_id).await
+            {
+                return Some(value);
+            }
+        }
+        "user" => {
+            if !source.id.to_string().eq(&user_id) {
+                return Some((StatusCode::FORBIDDEN, "The task list is not belong to you")
+                    .into_response());
+            }
+        }
+        _ => {
+            return Some((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Exception in target list",
+            )
+                .into_response());
+        }
+    };
+    None
 }
 
 // pub async fn authorize_against_draft_id(

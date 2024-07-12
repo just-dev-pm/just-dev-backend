@@ -292,6 +292,11 @@ impl TaskRepository {
         Ok(task)
     }
 
+    pub async fn delete_task_list(&self, task_list_id: &str) -> Result<TaskList, io::Error> {
+        let task_list: TaskList = delete_resource(&self.context, task_list_id, "task_list").await?;
+        Ok(task_list)
+    }
+
     // #[deprecated]
     // pub async fn query_assignees_of_task(
     //     &self,
@@ -342,7 +347,7 @@ impl TaskRepository {
     // }
 
     pub async fn deassign_task_for_user(&self, task_id: &str, user_id: &str) -> Result<(), io::Error> {
-        let _ = exec_query(&self.context, format!("DELETE task:{task_id}->assign WHERE out=user:{user_id}")).await?;
+        let _ = exec_query(&self.context, format!("DELETE task:{task_id}->assign WHERE out==user:{user_id}")).await?;
         Ok(())
     }
 

@@ -276,6 +276,11 @@ mod test_user {
             .assign_task_to_user("xiwen", &user_id)
             .await
             .unwrap();
+        let result = task_repo.query_assigned_tasks_by_user(&user_id).await.unwrap();
+        assert!(result.contains(&("xiwen".to_owned(), "dc".to_owned())));
+        let _ = task_repo.deassign_task_for_user("xiwen", &user_id).await.unwrap();
+        let result = task_repo.query_assigned_tasks_by_user(&user_id).await.unwrap();
+        assert_eq!(result.len(), 0);
     }
 
     #[tokio::test]
@@ -358,6 +363,8 @@ mod test_user {
         let result = repo.assign_event_for_user("xiwen", "xiwen").await.unwrap();
         assert_eq!(result.name, "xiwen");
     }
+
+
 
     #[tokio::test]
     async fn test_delete_event() {
@@ -455,4 +462,5 @@ mod test_user {
         let result = repo.query_assigned_tasks_by_user("xiwen").await.unwrap();
         assert!(result.contains(&("xiwen".to_owned(), "dc".to_owned())));
     }
+
 }

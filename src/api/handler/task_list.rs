@@ -6,7 +6,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use axum_login::AuthSession;
+use axum_login::{AuthSession, AuthUser};
 use futures::{future::try_join_all, Future};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
@@ -34,7 +34,7 @@ pub async fn get_task_list_info(
 ) -> impl IntoResponse {
     let state = state.lock().await;
     if let Some(value) =
-        authorize_against_task_list_id(&auth_session, &state.user_repo, &task_list_id).await
+        authorize_against_task_list_id(auth_session, &state.project_repo, &state.task_repo, &task_list_id).await
     {
         return value;
     }
@@ -264,5 +264,21 @@ pub async fn delete_task_list(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(task_list_id): Path<String>,
 ) -> impl IntoResponse {
-    todo!()
+    let state = state.lock().await;
+
+    if let Some(value) = authorize_against_task_list_id(
+        auth_session,
+        &state.project_repo,
+        &state.task_repo,
+        &task_list_id,
+    )
+    .await
+    {
+        return value;
+    }
+
+    match state.task_repo.delete_task_list(&task_list_id).await {
+        Ok(_) => StatusCode::OK.into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
 }
