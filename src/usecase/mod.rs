@@ -1,12 +1,12 @@
 pub mod draft_collaboration;
 pub mod invitation_token;
+pub mod task_stream;
 pub mod user;
 pub mod util;
 
 #[cfg(test)]
 mod test {
     use crate::{
-       
         db::{
             model::{status::StatusPool, user::User},
             repository::{agenda::AgendaRepository, task::TaskRepository, user::UserRepository},
