@@ -56,6 +56,9 @@ pub async fn authorize_against_project_id(
     let admin = project_repo.query_admin_by_id(project_id).await;
     let members = project_repo.query_members_by_id(project_id).await;
 
+    dbg!(&admin);
+    dbg!(&members);
+
     match (admin, members) {
         (Ok(admin), Ok(members)) => {
             let member_id_eqs: Vec<_> = members
@@ -389,7 +392,7 @@ pub fn event_db_to_api(
         description: event.description,
         start_time: event.start_time.0,
         end_time: event.end_time.0,
-        participants
+        participants,
     }
 }
 
@@ -425,5 +428,3 @@ pub fn task_list_db_to_api(
         },
     })
 }
-
-

@@ -180,7 +180,36 @@ pub async fn create_task_list_for_project(
     Path(project_id): Path<String>,
     Json(req): Json<CreateTaskListForProjectRequest>,
 ) -> impl IntoResponse {
-    todo!()
+    let state = state.lock().await;
+
+    if let Some(value) =
+        authorize_against_project_id(auth_session, &state.project_repo, &project_id).await
+    {
+        return value;
+    }
+
+    let returned_db_task_list = state
+        .task_repo
+        .insert_task_list_for_project(&project_id, &req.name)
+        .await;
+
+    let returned_db_task_list = match returned_db_task_list {
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(task_list) => task_list,
+    };
+
+    let api_task_list = match task_list_db_to_api(returned_db_task_list) {
+        None => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Some(task_list) => task_list,
+    };
+
+    (
+        StatusCode::OK,
+        Json(CreateTaskListForProjectResponse {
+            task_list: api_task_list,
+        }),
+    )
+        .into_response()
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
