@@ -264,7 +264,7 @@ pub async fn delete_task_list(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(task_list_id): Path<String>,
 ) -> impl IntoResponse {
-    let state = state.lock().await;
+    let ref state = state.lock().await;
 
     if let Some(value) = authorize_against_task_list_id(
         auth_session,
@@ -276,6 +276,18 @@ pub async fn delete_task_list(
     {
         return value;
     }
+
+    let tasks = match state.task_repo.query_all_tasks_of_task_list(&task_list_id).await {
+        Ok(tasks) => tasks,
+        Err(_) => return StatusCode::OK.into_response(),
+    };
+
+    let task_futures: Vec<_> = tasks
+        .into_iter()
+        .map(|task_id| async move {state.task_repo.delete_task(&task_id).await})
+        .collect();
+
+    let _ = try_join_all(task_futures).await;
 
     match state.task_repo.delete_task_list(&task_list_id).await {
         Ok(_) => StatusCode::OK.into_response(),

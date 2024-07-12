@@ -93,3 +93,16 @@ pub async fn patch_task(
 ) -> impl IntoResponse {
     todo!()
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GetAssignedTasksReponse {
+    pub tasks: Vec<Task>,
+}
+
+pub async fn get_assigned_tasks_for_user(
+    auth_session: AuthSession<AuthBackend>,
+    State(state): State<Arc<Mutex<AppState>>>,
+    Path((task_list_id, task_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    todo!()
+}

@@ -51,7 +51,7 @@ use super::handler::{
         create_requirement_for_project, delete_requirement, get_requirement_info,
         get_requirements_for_project, patch_requirement, GetRequirementsForProjectResponse,
     },
-    task::{create_task_for_list, delete_task_from_list, get_tasks_for_list, patch_task},
+    task::{create_task_for_list, delete_task_from_list, get_assigned_tasks_for_user, get_tasks_for_list, patch_task},
     task_link::{
         create_task_link_for_project, create_task_link_for_user, delete_task_link,
         get_links_for_task, get_task_links_for_project, get_task_links_for_user, patch_task_link,
@@ -155,6 +155,7 @@ impl App {
                     "/api/projects/:project_id/agendas",
                     get(get_agendas_for_project).post(create_agenda_for_project),
                 )
+                .route("/api/users/:user_id/tasks", get(get_assigned_tasks_for_user))
                 .route(
                     "/api/users/:user_id/agendas",
                     get(get_agendas_for_user).post(create_agenda_for_user),

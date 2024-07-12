@@ -422,4 +422,9 @@ impl TaskRepository {
         Ok(try_join_all(futures).await?) 
     
     }
+
+    pub async fn delete_task(&self, task_id: &str) -> Result<Task, io::Error> {
+        let task: Task = delete_resource(&self.context, task_id, "task").await?;
+        Ok(task)
+    }
 }
