@@ -73,7 +73,7 @@ impl TaskRepository {
             .context
             .db
             .query(format!(
-                "SELECT <-assign<-user as assignees FROM task where id == task:{}",
+                "SELECT ->assign->user as assignees FROM task where id == task:{}",
                 id
             ))
             .await
