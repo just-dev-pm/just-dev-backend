@@ -13,8 +13,6 @@ pub struct Task {
     pub description: String,
     #[serde(rename = "status")]
     pub status: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub status_pool: Option<StatusPool>,
     pub complete: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ddl: Option<Datetime>,
@@ -49,7 +47,6 @@ impl Task {
             name,
             description: "".to_string(),
             status: "0".to_owned(),
-            status_pool: Some(StatusPool::new()),
             complete: false,
             ddl: None,
             assignees: None,

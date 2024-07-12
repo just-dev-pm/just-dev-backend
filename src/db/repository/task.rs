@@ -67,40 +67,23 @@ impl TaskRepository {
         Ok(source)
     }
 
-    pub async fn query_task_by_id(&self, id: &str, task_list_id: &str) -> Result<Task, io::Error> {
+    pub async fn query_task_by_id(&self, id: &str) -> Result<Task, io::Error> {
         let mut task: Task = select_resourse(&self.context, id, "task").await?;
-        let source = self.query_task_list_source(task_list_id).await?;
-        let entity = match source.tb.as_str() {
-            "user" => Entity::User,
-            "project" => Entity::Project,
-            _ => return Err(custom_io_error("Task source not found")),
-        };
         let mut response = self
             .context
             .db
             .query(format!(
-                "SELECT <-follow<-task<-have<-task_list<-own<-user as assignees FROM task where id == task:{}",
+                "SELECT <-assign<-user as assignees FROM task where id == task:{}",
                 id
             ))
-            .query(format!("select <-have<-task_list<-own<-user.status_pool.* as status_pool from task where id == task:{}", id))
-            .query(format!("select <-have<-task_list<-own<-project.status_pool.* as status_pool from task where id == task:{}", id))
             .await
             .unwrap();
         let assignees = response
             .take::<Option<Vec<Thing>>>((0, "assignees"))
             .map_err(get_io_error)?
             .unwrap_or_default();
-        let status_pool = match entity {
-            Entity::User => response
-                .take::<Option<Vec<StatusPool>>>((1, "status_pool"))
-                .map_err(get_io_error)?,
-            Entity::Project => response
-                .take::<Option<Vec<StatusPool>>>((2, "status_pool"))
-                .map_err(get_io_error)?,
-        };
 
         task.assignees = Some(unwrap_things(assignees));
-        task.status_pool = status_pool.and_then(|mut s| s.pop());
         Ok(task)
     }
 
@@ -402,8 +385,8 @@ impl TaskRepository {
         Ok(unwrap_thing(task_lists.pop().ok_or(custom_io_error("Task has no parent task list!"))?))
     }
 
-    pub async fn query_assigned_tasks_by_user(&self, user_id: &str) -> Result<Vec<(DbModelId, DbModelId)>, io::Error> {
-        // former is task id, latter is tasklist id
+    pub async fn query_assigned_tasks_by_user(&self, user_id: &str) -> Result<Vec<(Task, DbModelId, DbModelId)>, io::Error> {
+        // task_id  task_list_id  source_id
         let mut response = exec_query(
             &self.context,
             format!(
@@ -415,9 +398,12 @@ impl TaskRepository {
             .take::<Option<Vec<Thing>>>("tasks")
             .map_err(get_io_error)?
             .unwrap_or_default());
-        let futures = tasks.into_iter().map(|task| async move {
-            let task_list = self.query_task_list_id_by_task(&task).await?;
-            Ok::<_, io::Error>((task, task_list))
+        let futures = tasks.into_iter().map(|task_id| async move {
+            let task = self.query_task_by_id(&task_id).await?;
+            let task_list = self.query_task_list_id_by_task(&task_id).await?;
+            let source = self.query_task_list_source(&task_list).await?;
+
+            Ok::<_, io::Error>((task, task_list, source.id.to_string()))
         }).collect::<Vec<_>>();
         Ok(try_join_all(futures).await?) 
     

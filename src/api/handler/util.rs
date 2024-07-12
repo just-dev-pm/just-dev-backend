@@ -17,6 +17,7 @@ use crate::{
         model::{
             project::Project,
             status::{Status, StatusPool},
+            task::Task,
         },
         repository::{
             agenda::AgendaRepository,
@@ -168,16 +169,19 @@ pub async fn authorize_against_task_list_id(
         }
         "user" => {
             if !source.id.to_string().eq(&user_id) {
-                return Some((StatusCode::FORBIDDEN, "The task list is not belong to you")
-                    .into_response());
+                return Some(
+                    (StatusCode::FORBIDDEN, "The task list is not belong to you").into_response(),
+                );
             }
         }
         _ => {
-            return Some((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Exception in target list",
-            )
-                .into_response());
+            return Some(
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Exception in target list",
+                )
+                    .into_response(),
+            );
         }
     };
     None
@@ -449,4 +453,46 @@ pub fn task_list_db_to_api(
             Some(tasks) => tasks.into_iter().map(|id| Id { id }).collect(),
         },
     })
+}
+
+pub fn task_db_to_api_assigned(
+    (task, project, task_list): (Task, String, String),
+) -> crate::api::handler::task::AssignedTask {
+    crate::api::handler::task::AssignedTask {
+        id: unwrap_thing(task.id.unwrap()),
+        name: task.name,
+        description: task.description,
+        assignees: task
+            .assignees
+            .unwrap_or_default()
+            .into_iter()
+            .map(|a| Id { id: a })
+            .collect(),
+        status: match task.complete {
+            true => crate::api::model::status::Status::Complete,
+            false => crate::api::model::status::Status::Incomplete { id: task.status },
+        },
+        deadline: task.ddl.unwrap_or_default().0,
+        project,
+        task_list,
+    }
+}
+
+pub fn task_db_to_api(task: Task) -> crate::api::model::task::Task {
+    crate::api::model::task::Task {
+        id: unwrap_thing(task.id.unwrap()),
+        name: task.name,
+        description: task.description,
+        assignees: task
+            .assignees
+            .unwrap_or_default()
+            .into_iter()
+            .map(|a| Id { id: a })
+            .collect(),
+        status: match task.complete {
+            true => crate::api::model::status::Status::Complete,
+            false => crate::api::model::status::Status::Incomplete { id: task.status },
+        },
+        deadline: task.ddl.unwrap_or_default().0,
+    }
 }

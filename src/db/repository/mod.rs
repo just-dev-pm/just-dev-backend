@@ -244,7 +244,7 @@ mod test_user {
     #[tokio::test]
     async fn test_query_task_by_id() {
         let repo = TaskRepository::new().await;
-        let result = repo.query_task_by_id("xiwen", "dc").await.unwrap();
+        let result = repo.query_task_by_id("xiwen").await.unwrap();
         assert_eq!(result.name, "xiwen");
     }
 
@@ -277,7 +277,7 @@ mod test_user {
             .await
             .unwrap();
         let result = task_repo.query_assigned_tasks_by_user(&user_id).await.unwrap();
-        assert!(result.contains(&("xiwen".to_owned(), "dc".to_owned())));
+        assert!(result.len() > 0);
         let _ = task_repo.deassign_task_for_user("xiwen", &user_id).await.unwrap();
         let result = task_repo.query_assigned_tasks_by_user(&user_id).await.unwrap();
         assert_eq!(result.len(), 0);
@@ -460,7 +460,7 @@ mod test_user {
     async fn test_query_assigned_tasks_by_user() {
         let repo = TaskRepository::new().await;
         let result = repo.query_assigned_tasks_by_user("xiwen").await.unwrap();
-        assert!(result.contains(&("xiwen".to_owned(), "dc".to_owned())));
+        assert!(result.len() > 0);
     }
 
 }

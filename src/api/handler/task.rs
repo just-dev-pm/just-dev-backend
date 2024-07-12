@@ -2,23 +2,28 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Path, State},
+    http::StatusCode,
     response::IntoResponse,
     Json,
 };
 use axum_login::AuthSession;
 use chrono::{DateTime, Utc};
+use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
+use surrealdb::sql::Datetime;
 use tokio::sync::Mutex;
 
 use crate::{
     api::{
         app::AppState,
         model::{status::Status, task::Task, util::Id},
-    },
-    usecase::util::auth_backend::AuthBackend,
+    }, usecase::util::auth_backend::AuthBackend
 };
 
-use super::user::PatchUserInfoRequest;
+use super::{
+    user::PatchUserInfoRequest,
+    util::{authorize_against_task_list_id, authorize_against_user_id, task_db_to_api, task_db_to_api_assigned},
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetTasksForList {
@@ -30,7 +35,47 @@ pub async fn get_tasks_for_list(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(task_list_id): Path<String>,
 ) -> impl IntoResponse {
-    todo!()
+    let ref state = state.lock().await;
+    if let Some(value) = authorize_against_task_list_id(
+        auth_session,
+        &state.project_repo,
+        &state.task_repo,
+        &task_list_id,
+    )
+    .await
+    {
+        return value;
+    }
+
+    let tasks = state
+        .task_repo
+        .query_all_tasks_of_task_list(&task_list_id)
+        .await;
+
+    let tasks = match tasks {
+        Ok(_tasks) => _tasks, 
+        Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response(),
+    };
+
+    let tasks:Vec<_> = tasks.into_iter().map(|id| async move {
+        state
+            .task_repo
+            .query_task_by_id(&id)
+            .await
+    }).collect();
+
+    let tasks = match try_join_all(tasks).await {
+        Ok(_tasks) => _tasks,
+        Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response(),
+    };
+
+    (
+        StatusCode::OK,
+        Json(GetTasksForList {
+            tasks: tasks.into_iter().map(|task| task_db_to_api(task)).collect(),
+        }),
+    )
+        .into_response()
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -54,7 +99,41 @@ pub async fn create_task_for_list(
     Path(task_list_id): Path<String>,
     Json(req): Json<CreateTaskForListRequest>,
 ) -> impl IntoResponse {
-    todo!()
+    let ref state = state.lock().await;
+    if let Some(value) = authorize_against_task_list_id(
+        auth_session,
+        &state.project_repo,
+        &state.task_repo,
+        &task_list_id,
+    ).await {
+        return value;
+    }
+
+    let task = crate::db::model::task::Task {
+        id: None,
+        name: req.name.clone(),
+        description: req.description.clone(),
+        assignees: Some(req.assignees.into_iter().map(|id| id.id).collect()),
+        status: match req.status {
+            Status::Complete => "complete".to_owned(),
+            Status::Incomplete { id } => id,
+        },
+        ddl: Some(Datetime{0: req.deadline.clone()}),
+        complete: false,
+    };
+
+    let task = match state
+        .task_repo.insert_task_for_task_list(&task, &task_list_id).await {
+            Ok(_task) => task, 
+            Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response(),
+        };
+
+    (
+        StatusCode::OK, 
+        Json(CreateTaskForListResponse {
+            task: task_db_to_api(task),
+        }),
+    ).into_response()
 }
 
 pub async fn delete_task_from_list(
@@ -95,14 +174,47 @@ pub async fn patch_task(
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AssignedTask {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub assignees: Vec<Id>,
+    pub status: Status,
+    pub deadline: DateTime<Utc>,
+    pub project: String,
+    pub task_list: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetAssignedTasksReponse {
-    pub tasks: Vec<Task>,
+    pub tasks: Vec<AssignedTask>,
 }
 
 pub async fn get_assigned_tasks_for_user(
     auth_session: AuthSession<AuthBackend>,
     State(state): State<Arc<Mutex<AppState>>>,
-    Path((task_list_id, task_id)): Path<(String, String)>,
+    Path(user_id): Path<String>,
 ) -> impl IntoResponse {
-    todo!()
+    if let Some(value) = authorize_against_user_id(auth_session, &user_id) {
+        return value;
+    }
+
+    let ref state = state.lock().await;
+
+    let tasks = state
+        .task_repo
+        .query_assigned_tasks_by_user(&user_id)
+        .await
+        .unwrap();
+
+    (
+        StatusCode::OK,
+        Json(GetAssignedTasksReponse {
+            tasks: tasks
+                .into_iter()
+                .map(|task| task_db_to_api_assigned(task))
+                .collect(),
+        }),
+    )
+        .into_response()
 }
