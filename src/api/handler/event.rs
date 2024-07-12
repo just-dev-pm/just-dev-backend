@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use crate::api::model::agenda::Event as ApiEvent;
+use crate::db::repository::utils::{get_str_id, unwrap_thing};
+use crate::usecase::notification::deassign_event_for_user;
+use crate::{api::model::agenda::Event as ApiEvent, usecase::notification::assign_event_for_user};
 use crate::db::model::agenda::Event as DbEvent;
 
 use axum::{
@@ -153,6 +155,8 @@ pub async fn patch_event(
         return (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response();
     }
 
+    let event_id = get_str_id(&event.as_ref().unwrap().id);
+
     let assignees_ref = match agenda_repo.query_assignees_of_event(&event_id).await {
         Ok(assignees) => assignees,
         Err(msg) => return (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response(),
@@ -162,7 +166,7 @@ pub async fn patch_event(
         let assignees: Vec<_> = assignees.into_iter().map(|a| a.id).collect();
         for assignee in &assignees {
             if !assignees_ref.contains(assignee) {
-                match agenda_repo.assign_event_for_user(&event_id, assignee).await {
+                match assign_event_for_user(&agenda_repo, &state.notif_repo, &event_id, &assignee).await {
                     Ok(_) => {}
                     Err(msg) => return (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response(),
                 }
@@ -170,7 +174,7 @@ pub async fn patch_event(
         }
         for assignee in assignees_ref {
             if !assignees.contains(&assignee) {
-                match agenda_repo.deassign_event_for_user(&event_id, &assignee).await {
+                match deassign_event_for_user(&agenda_repo, &state.notif_repo, &event_id, &assignee).await {
                     Ok(_) => {}
                     Err(msg) => return (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response(),
                 }

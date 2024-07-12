@@ -2,6 +2,7 @@ pub mod draft_collaboration;
 pub mod invitation_token;
 pub mod task_stream;
 pub mod user;
+pub mod notification;
 pub mod util;
 
 #[cfg(test)]

@@ -18,7 +18,10 @@ use crate::{
         app::AppState,
         model::{status::Status, task::Task, util::Id},
     },
-    usecase::util::auth_backend::AuthBackend,
+    usecase::{
+        notification::{assign_task_to_user, deassign_task_for_user},
+        util::auth_backend::AuthBackend,
+    },
 };
 
 use super::{
@@ -157,7 +160,22 @@ pub async fn delete_task_from_list(
     State(state): State<Arc<Mutex<AppState>>>,
     Path((task_list_id, task_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    todo!()
+    let state = state.lock().await;
+    if let Some(value) = authorize_against_task_list_id(
+        auth_session,
+        &state.project_repo,
+        &state.task_repo,
+        &task_list_id,
+    )
+    .await
+    {
+        return value;
+    };
+
+    match state.task_repo.delete_task(&task_id).await {
+        Ok(_) => (StatusCode::OK, Json("")).into_response(),
+        Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response(),
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -228,10 +246,9 @@ pub async fn patch_task(
         let assignees_ref: Vec<_> = assignees_ref.into_iter().map(|a| a.id).collect();
         for assignee in &assignees {
             if !assignees_ref.contains(assignee) {
-                if let Err(err) = state
-                    .task_repo
-                    .deassign_task_for_user(&task_id, &assignee)
-                    .await
+                if let Err(err) =
+                    deassign_task_for_user(&state.task_repo, &state.notif_repo, &task_id, &assignee)
+                        .await
                 {
                     return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string()))
                         .into_response();
@@ -240,10 +257,9 @@ pub async fn patch_task(
         }
         for assignee in &assignees_ref {
             if !assignees.contains(&assignee) {
-                if let Err(err) = state
-                    .task_repo
-                    .assign_task_to_user(&task_id, &assignee)
-                    .await
+                if let Err(err) =
+                    assign_task_to_user(&state.task_repo, &state.notif_repo, &task_id, &assignee)
+                        .await
                 {
                     return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string()))
                         .into_response();
@@ -251,6 +267,10 @@ pub async fn patch_task(
             }
         }
         new_task.assignees = Some(assignees_ref);
+    }
+
+    if let Err(err) = state.task_repo.update_task_by_id(&task_id, &new_task).await {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response();
     }
 
     (

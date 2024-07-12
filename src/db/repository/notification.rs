@@ -72,15 +72,14 @@ impl NotificationRepository {
 
     pub async fn insert_notif(
         &self,
-        title: String,
-        content: String,
         user_id: &str,
-        about_table: &str,
         about_id: &str,
+        about_table: &str, 
+        notif: Notification,
     ) -> Result<Notification, io::Error> {
         let notif = create_resource(
             &self.context,
-            &Notification::new(title, content),
+            &notif,
             "notification",
         )
         .await?;

@@ -170,9 +170,11 @@ impl TaskRepository {
     //         .await
     //         .map_err(|e| get_io_error(e))?;
     //     Ok(task)
-    // }
+    // }")]
+    /// Don't use this func directly because of no notification
+    #[doc(hidden)]
+    pub async fn _assign_task_to_user(&self, task_id: &str, user_id: &str) -> Result<(), io::Error> {
 
-    pub async fn assign_task_to_user(&self, task_id: &str, user_id: &str) -> Result<(), io::Error> {
         let _ = exec_query(&self.context, format!("relate task:{task_id} -> assign -> user:{user_id}")).await?;
         Ok(())
     }
@@ -329,7 +331,8 @@ impl TaskRepository {
     //     Err(custom_io_error("Assigning relation not found"))
     // }
 
-    pub async fn deassign_task_for_user(&self, task_id: &str, user_id: &str) -> Result<(), io::Error> {
+    /// Don't use this func directly because of no notification
+    pub async fn _deassign_task_for_user(&self, task_id: &str, user_id: &str) -> Result<(), io::Error> {
         let _ = exec_query(&self.context, format!("DELETE task:{task_id}->assign WHERE out==user:{user_id}")).await?;
         Ok(())
     }

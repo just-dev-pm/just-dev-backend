@@ -12,6 +12,7 @@ mod test_user {
 
     use axum_login::AuthUser;
 
+    use crate::db::model::notification::Notification;
     use crate::usecase::user::insert_user;
     use crate::db::{
             model::{
@@ -271,12 +272,12 @@ mod test_user {
             .unwrap();
         let user_id = unwrap_thing(user.id.clone().unwrap());
         let _ = task_repo
-            .assign_task_to_user("xiwen", &user_id)
+            ._assign_task_to_user("xiwen", &user_id)
             .await
             .unwrap();
         let result = task_repo.query_assigned_tasks_by_user(&user_id).await.unwrap();
         assert!(result.len() > 0);
-        let _ = task_repo.deassign_task_for_user("xiwen", &user_id).await.unwrap();
+        let _ = task_repo._deassign_task_for_user("xiwen", &user_id).await.unwrap();
         let result = task_repo.query_assigned_tasks_by_user(&user_id).await.unwrap();
         assert_eq!(result.len(), 0);
     }
@@ -323,11 +324,10 @@ mod test_user {
         let repo = NotificationRepository::new().await;
         let result = repo
             .insert_notif(
-                "xiwen".to_owned(),
-                "xiwen".to_owned(),
+                "xiwen",
                 "xiwen",
                 "task",
-                "xiwen",
+                Notification::new("xiwen".to_owned(), "xiwen".to_owned())
             )
             .await
             .unwrap();
@@ -358,7 +358,7 @@ mod test_user {
     #[tokio::test]
     async fn test_assign_event_for_user() {
         let repo = AgendaRepository::new().await;
-        let result = repo.assign_event_for_user("xiwen", "xiwen").await.unwrap();
+        let result = repo._assign_event_for_user("xiwen", "xiwen").await.unwrap();
         assert_eq!(result.name, "xiwen");
     }
 
@@ -412,12 +412,12 @@ mod test_user {
     async fn test_deassign_user_of_event() {
         let repo = AgendaRepository::new().await;
         let result = repo
-            .deassign_event_for_user("xiwen", "xiwen")
+            ._deassign_event_for_user("xiwen", "xiwen")
             .await
             .unwrap();
         assert_eq!(result.name, "xiwen");
         let repo = AgendaRepository::new().await;
-        let result = repo.assign_event_for_user("xiwen", "xiwen").await.unwrap();
+        let result = repo._assign_event_for_user("xiwen", "xiwen").await.unwrap();
         assert_eq!(result.name, "xiwen");
     }
 

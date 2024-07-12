@@ -191,7 +191,8 @@ impl AgendaRepository {
         Ok(unwrap_things(assignees))
     }
 
-    pub async fn deassign_event_for_user(
+    /// Don't use this function directly, use `deassign_event_for_user` instead
+    pub async fn _deassign_event_for_user(
         &self,
         event_id: &str,
         user_id: &str,
@@ -213,8 +214,8 @@ impl AgendaRepository {
         Err(custom_io_error("Assigning relation not found"))
 
     }
-
-    pub async fn assign_event_for_user(
+    /// Don't use this function directly, use `assign_event_for_user` instead
+    pub async fn _assign_event_for_user(
         &self,
         event_id: &str,
         user_id: &str,
