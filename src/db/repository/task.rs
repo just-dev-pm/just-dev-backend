@@ -181,7 +181,7 @@ impl TaskRepository {
         Ok(unwrap_things(task_lists))
     }
 
-    pub async fn query_task_links_by_task_id (
+    pub async fn query_task_links_by_task_id(
         &self,
         task_id: &str,
     ) -> Result<Vec<TaskLink>, io::Error> {
@@ -205,7 +205,7 @@ impl TaskRepository {
         Ok(tasks)
     }
 
-    pub async fn query_task_outgoing_links_by_task_id (
+    pub async fn query_task_outgoing_links_by_task_id(
         &self,
         task_id: &str,
     ) -> Result<Vec<TaskLink>, io::Error> {
@@ -283,5 +283,42 @@ impl TaskRepository {
         }
         Err(custom_io_error("Assigning relation not found"))
 
+    }
+
+    pub async fn insert_task_list_for_project(&self, project_id: &str, name: &str) -> Result<TaskList, io::Error> {
+        let task_list = create_resource(
+            &self.context,
+            &TaskList::new(name.to_string()),
+            "task_list",
+        )
+        .await?;
+
+        let _ = self
+            .context
+            .db
+            .query(format!(
+                "relate project:{} -> own -> task_list:{}",
+                project_id,
+                get_str_id(&task_list.id)
+            ))
+            .await
+            .map_err(|e| get_io_error(e))?;
+        Ok(task_list)
+    }
+
+    pub async fn query_all_tasks_of_task_list(&self, task_list: &str) -> Result<Vec<DbModelId>, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!(
+                "SELECT ->have->task as tasks FROM task_list where id == task_list:{}",
+                task_list
+            ),
+        )
+        .await?;
+        let tasks = response
+            .take::<Option<Vec<Thing>>>("tasks")
+            .map_err(get_io_error)?
+            .unwrap_or_default();
+        Ok(unwrap_things(tasks))
     }
 }

@@ -17,12 +17,21 @@ mod test_user {
     use crate::{
         db::{
             model::{
-                agenda::Event, draft::DraftPayload, project::Project, status::StatusPool, task::Task, user::User
+                agenda::Event, draft::DraftPayload, project::Project, status::StatusPool,
+                task::Task, user::User,
             },
             repository::{
-                agenda::AgendaRepository, draft::DraftRepository, notification::NotificationRepository, project::ProjectRepository, requirement::RequirementRepository, task::{Entity, TaskRepository}, user::UserRepository, utils::unwrap_thing
+                agenda::AgendaRepository,
+                draft::DraftRepository,
+                notification::NotificationRepository,
+                project::ProjectRepository,
+                requirement::RequirementRepository,
+                task::{Entity, TaskRepository},
+                user::UserRepository,
+                utils::unwrap_thing,
             },
-        }, usecase::user::insert_user
+        },
+        usecase::user::insert_user,
     };
 
     fn create_user() -> User {
@@ -305,14 +314,26 @@ mod test_user {
     #[tokio::test]
     async fn test_update_task_by_id() {
         let repo = TaskRepository::new().await;
-        let task = repo.update_task_by_id("xiwen", &Task::new("xiwen".to_string())).await.unwrap();
+        let task = repo
+            .update_task_by_id("xiwen", &Task::new("xiwen".to_string()))
+            .await
+            .unwrap();
         assert_eq!(task.name, "xiwen");
     }
 
     #[tokio::test]
     async fn test_insert_notif() {
         let repo = NotificationRepository::new().await;
-        let result = repo.insert_notif("xiwen".to_owned(), "xiwen".to_owned(), "xiwen", "task", "xiwen").await.unwrap();
+        let result = repo
+            .insert_notif(
+                "xiwen".to_owned(),
+                "xiwen".to_owned(),
+                "xiwen",
+                "task",
+                "xiwen",
+            )
+            .await
+            .unwrap();
         assert_eq!(result.title, "xiwen");
     }
 
@@ -324,7 +345,7 @@ mod test_user {
     }
 
     #[tokio::test]
-    async fn test_handle_notif(){
+    async fn test_handle_notif() {
         let repo = NotificationRepository::new().await;
         let result = repo.handle_notif_by_id("xiwen").await.unwrap();
         assert_eq!(result.handled, true);
@@ -354,10 +375,16 @@ mod test_user {
     #[tokio::test]
     async fn test_insert_requ_for_project() {
         let repo = RequirementRepository::new().await;
-        let result = repo.insert_requ_for_project("xiwen", "xiwen".to_owned(), "xiwen".to_owned()).await.unwrap();
+        let result = repo
+            .insert_requ_for_project("xiwen", "xiwen".to_owned(), "xiwen".to_owned())
+            .await
+            .unwrap();
         assert_eq!(result.name, "xiwen");
         let repo = RequirementRepository::new().await;
-        let result = repo.delete_requ_from_project(&unwrap_thing(result.id.clone().unwrap())).await.unwrap();
+        let result = repo
+            .delete_requ_from_project(&unwrap_thing(result.id.clone().unwrap()))
+            .await
+            .unwrap();
         assert_eq!(result.name, "xiwen");
     }
 
@@ -376,15 +403,32 @@ mod test_user {
     }
 
     #[tokio::test]
-    async fn test_deassign_uset_of_event() {
+    async fn test_deassign_user_of_event() {
         let repo = AgendaRepository::new().await;
-        let result = repo.deassign_event_for_user("xiwen", "xiwen").await.unwrap();
+        let result = repo
+            .deassign_event_for_user("xiwen", "xiwen")
+            .await
+            .unwrap();
         assert_eq!(result.name, "xiwen");
         let repo = AgendaRepository::new().await;
         let result = repo.assign_event_for_user("xiwen", "xiwen").await.unwrap();
         assert_eq!(result.name, "xiwen");
     }
 
+    #[tokio::test]
+    async fn test_query_all_tasks_of_list() {
+        let repo = TaskRepository::new().await;
+        let result = repo.query_all_tasks_of_task_list("xiwen").await.unwrap();
+        assert!(result.contains(&"2br7xtx5bmrrx5u2d5ah".to_owned()));
+    }
 
-    
+    #[tokio::test]
+    async fn test_insert_task_list_for_project() {
+        let repo = TaskRepository::new().await;
+        let result = repo
+            .insert_task_list_for_project("xiwen", "insert task list test")
+            .await
+            .unwrap();
+        assert_eq!(result.name, "insert task list test")
+    }
 }

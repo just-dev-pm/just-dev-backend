@@ -97,6 +97,14 @@ impl AgendaRepository {
         Ok(agenda)
     }
 
+    pub async fn update_event(&self, event_id: &str, event: &Event) -> Result<Event, io::Error> {
+        update_resource(&self.context, event_id, event, "event").await
+    }
+
+    pub async fn update_agenda(&self, agenda_id: &str, agenda: &Agenda) -> Result<Agenda, io::Error> {
+        update_resource(&self.context, agenda_id, agenda, "agenda").await
+    }
+
     pub async fn insert_exagenda_for_user(
         &self,
         name: &str,

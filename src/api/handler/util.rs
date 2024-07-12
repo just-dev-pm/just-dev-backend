@@ -381,7 +381,7 @@ pub fn draft_db_to_api(
 
 pub fn event_db_to_api(
     event: crate::db::model::agenda::Event,
-    participants: Vec<String>,
+    participants: Vec<Id>,
 ) -> crate::api::model::agenda::Event {
     Event {
         id: unwrap_thing(event.id.unwrap()),
@@ -389,10 +389,7 @@ pub fn event_db_to_api(
         description: event.description,
         start_time: event.start_time.0,
         end_time: event.end_time.0,
-        participants: participants
-            .into_iter()
-            .map(|p| api::model::util::Id { id: p })
-            .collect(),
+        participants
     }
 }
 
@@ -428,3 +425,5 @@ pub fn task_list_db_to_api(
         },
     })
 }
+
+

@@ -137,7 +137,51 @@ pub async fn patch_event(
         Ok(event) => event,
         Err(msg) => return (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response(),
     };
-    todo!()
+
+    let event = crate::db::model::agenda::Event {
+        id: event_ref.id,
+        name: req.name.unwrap_or(event_ref.name),
+        description: req.description.unwrap_or(event_ref.description),
+        start_time: req.start_time.unwrap_or(event_ref.start_time.0).into(),
+        end_time: req.end_time.unwrap_or(event_ref.end_time.0).into(),
+    };
+
+    let event = agenda_repo.update_event(&event_id, &event).await;
+    if let Err(err) = event {
+        return (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response();
+    }
+
+    let assignees_ref = match agenda_repo.query_assignees_of_event(&event_id).await {
+        Ok(assignees) => assignees,
+        Err(msg) => return (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response(),
+    };
+
+    if let Some(assignees) = req.participants.clone() {
+        let assignees: Vec<_> = assignees.into_iter().map(|a| a.id).collect();
+        for assignee in &assignees {
+            if !assignees_ref.contains(assignee) {
+                match agenda_repo.assign_event_for_user(&event_id, assignee).await {
+                    Ok(_) => {}
+                    Err(msg) => return (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response(),
+                }
+            }
+        }
+        for assignee in assignees_ref {
+            if !assignees.contains(&assignee) {
+                match agenda_repo.deassign_event_for_user(&event_id, &assignee).await {
+                    Ok(_) => {}
+                    Err(msg) => return (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response(),
+                }
+            }
+        }
+    }  
+    (
+        StatusCode::OK,
+        Json(PatchEventResponse {
+            event: event_db_to_api(event.unwrap(), req.participants.unwrap_or_default()),
+        }),
+    )
+        .into_response()
     
 }
 
