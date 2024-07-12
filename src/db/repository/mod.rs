@@ -12,8 +12,8 @@ mod test_user {
 
     use axum_login::AuthUser;
 
-    use crate::{
-        db::{
+    use crate::usecase::user::insert_user;
+    use crate::db::{
             model::{
                 agenda::Event, draft::DraftPayload, project::Project, status::StatusPool,
                 task::Task, user::User,
@@ -28,9 +28,7 @@ mod test_user {
                 user::UserRepository,
                 utils::unwrap_thing,
             },
-        },
-        usecase::user::insert_user,
-    };
+        };
 
     fn create_user() -> User {
         User {
@@ -423,11 +421,12 @@ mod test_user {
         assert_eq!(result.name, "xiwen");
     }
 
+
     #[tokio::test]
     async fn test_query_all_tasks_of_list() {
         let repo = TaskRepository::new().await;
         let result = repo.query_all_tasks_of_task_list("xiwen").await.unwrap();
-        assert!(result.contains(&"2br7xtx5bmrrx5u2d5ah".to_owned()));
+        assert!(result.contains(&"su2ys11l163wj1vf9s73".to_owned()));
     }
 
     #[tokio::test]

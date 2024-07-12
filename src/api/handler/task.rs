@@ -17,12 +17,16 @@ use crate::{
     api::{
         app::AppState,
         model::{status::Status, task::Task, util::Id},
-    }, usecase::util::auth_backend::AuthBackend
+    },
+    usecase::util::auth_backend::AuthBackend,
 };
 
 use super::{
     user::PatchUserInfoRequest,
-    util::{authorize_against_task_list_id, authorize_against_user_id, task_db_to_api, task_db_to_api_assigned},
+    util::{
+        authorize_against_task_list_id, authorize_against_user_id, task_db_to_api,
+        task_db_to_api_assigned,
+    },
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -53,20 +57,22 @@ pub async fn get_tasks_for_list(
         .await;
 
     let tasks = match tasks {
-        Ok(_tasks) => _tasks, 
-        Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response(),
+        Ok(_tasks) => _tasks,
+        Err(err) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response()
+        }
     };
 
-    let tasks:Vec<_> = tasks.into_iter().map(|id| async move {
-        state
-            .task_repo
-            .query_task_by_id(&id)
-            .await
-    }).collect();
+    let tasks: Vec<_> = tasks
+        .into_iter()
+        .map(|id| async move { state.task_repo.query_task_by_id(&id).await })
+        .collect();
 
     let tasks = match try_join_all(tasks).await {
         Ok(_tasks) => _tasks,
-        Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response(),
+        Err(err) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response()
+        }
     };
 
     (
@@ -105,7 +111,9 @@ pub async fn create_task_for_list(
         &state.project_repo,
         &state.task_repo,
         &task_list_id,
-    ).await {
+    )
+    .await
+    {
         return value;
     }
 
@@ -118,22 +126,30 @@ pub async fn create_task_for_list(
             Status::Complete => "complete".to_owned(),
             Status::Incomplete { id } => id,
         },
-        ddl: Some(Datetime{0: req.deadline.clone()}),
+        ddl: Some(Datetime {
+            0: req.deadline.clone(),
+        }),
         complete: false,
     };
 
     let task = match state
-        .task_repo.insert_task_for_task_list(&task, &task_list_id).await {
-            Ok(_task) => task, 
-            Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response(),
-        };
+        .task_repo
+        .insert_task_for_task_list(&task, &task_list_id)
+        .await
+    {
+        Ok(_task) => _task,
+        Err(err) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response()
+        }
+    };
 
     (
-        StatusCode::OK, 
+        StatusCode::OK,
         Json(CreateTaskForListResponse {
             task: task_db_to_api(task),
         }),
-    ).into_response()
+    )
+        .into_response()
 }
 
 pub async fn delete_task_from_list(
@@ -170,7 +186,80 @@ pub async fn patch_task(
     Path((task_list_id, task_id)): Path<(String, String)>,
     Json(req): Json<PatchTaskRequest>,
 ) -> impl IntoResponse {
-    todo!()
+    let state = state.lock().await;
+    if let Some(value) = authorize_against_task_list_id(
+        auth_session,
+        &state.project_repo,
+        &state.task_repo,
+        &task_list_id,
+    )
+    .await
+    {
+        return value;
+    };
+
+    let task = match state.task_repo.query_task_by_id(&task_id).await {
+        Ok(_task) => _task,
+        Err(err) => return (StatusCode::BAD_REQUEST, Json(err.to_string())).into_response(),
+    };
+
+    let mut new_task = crate::db::model::task::Task {
+        name: req.name.unwrap_or(task.name.clone()),
+        description: req.description.unwrap_or(task.description.clone()),
+        ddl: req.deadline.map(|ddl| Datetime { 0: ddl }),
+        complete: task.complete,
+        ..task.clone()
+    };
+
+    (new_task.complete, new_task.status) = match req.status {
+        Some(Status::Complete) => (true, "complete".to_owned()),
+        Some(Status::Incomplete { id }) => (false, id),
+        None => (task.complete, task.status),
+    };
+
+    let assignees = match state.task_repo.query_assignees_of_task(&task_id).await {
+        Ok(_assignees) => _assignees,
+        Err(err) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response()
+        }
+    };
+
+    if let Some(assignees_ref) = req.assignees {
+        let assignees_ref: Vec<_> = assignees_ref.into_iter().map(|a| a.id).collect();
+        for assignee in &assignees {
+            if !assignees_ref.contains(assignee) {
+                if let Err(err) = state
+                    .task_repo
+                    .deassign_task_for_user(&task_id, &assignee)
+                    .await
+                {
+                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string()))
+                        .into_response();
+                }
+            }
+        }
+        for assignee in &assignees_ref {
+            if !assignees.contains(&assignee) {
+                if let Err(err) = state
+                    .task_repo
+                    .assign_task_to_user(&task_id, &assignee)
+                    .await
+                {
+                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string()))
+                        .into_response();
+                }
+            }
+        }
+        new_task.assignees = Some(assignees_ref);
+    }
+
+    (
+        StatusCode::OK,
+        Json(PatchTaskResponse {
+            task: task_db_to_api(new_task),
+        }),
+    )
+        .into_response()
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

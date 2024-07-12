@@ -1,19 +1,15 @@
-use axum::{extract::ws::close_code::PROTOCOL, http::StatusCode, response::IntoResponse};
+use axum::{http::StatusCode, response::IntoResponse};
 use axum_login::{AuthSession, AuthUser};
 use surrealdb::sql::Thing;
 use tracing::event;
 
-use crate::{
-    api::{
-        self,
-        model::{
+use crate::api::model::{
             agenda::Event,
             asset::Asset,
-            status::{IndexedStatusContent, StatusContent},
+                status::{IndexedStatusContent, StatusContent},
             util::Id,
-        },
-    },
-    db::{
+        };
+use crate::db::{
         model::{
             project::Project,
             status::{Status, StatusPool},
@@ -26,9 +22,8 @@ use crate::{
             user::UserRepository,
             utils::unwrap_thing,
         },
-    },
-    usecase::util::auth_backend::AuthBackend,
-};
+    };
+use crate::usecase::util::auth_backend::AuthBackend;
 
 pub fn authorize_against_user_id(
     auth_session: AuthSession<AuthBackend>,

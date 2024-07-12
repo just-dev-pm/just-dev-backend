@@ -7,6 +7,7 @@ use crate::db::{
     model::agenda::{Agenda, Event},
 };
 
+
 use crate::db::repository::utils::*;
 
 #[derive(Clone)]
@@ -59,6 +60,7 @@ impl AgendaRepository {
         Ok(unwrap_things(events))
     }
 
+
     pub async fn query_agenda_by_id(&self, id: &str) -> Result<Agenda, io::Error> {
         select_resourse(&self.context, id, "agenda").await
     }
@@ -78,6 +80,7 @@ impl AgendaRepository {
         delete_resource(&self.context, event_id, "event").await
     }
 
+
     pub async fn insert_agenda_for_user(
         &self,
         user_id: &str,
@@ -85,6 +88,7 @@ impl AgendaRepository {
     ) -> Result<Agenda, io::Error> {
         let agenda = Agenda::new(name.to_owned());
 
+        let agenda = create_resource(&self.context, &agenda, "agenda").await?;
         let agenda = create_resource(&self.context, &agenda, "agenda").await?;
         let _ = exec_query(
             &self.context,
@@ -134,6 +138,7 @@ impl AgendaRepository {
     ) -> Result<Agenda, io::Error> {
         let agenda = Agenda::new(name.to_owned());
         let agenda = create_resource(&self.context, &agenda, "agenda").await?;
+        let agenda = create_resource(&self.context, &agenda, "agenda").await?;
         let _ = exec_query(
             &self.context,
             format!(
@@ -159,6 +164,7 @@ impl AgendaRepository {
             ),
         )
         .await?;
+           
         Ok(event)
     }
 

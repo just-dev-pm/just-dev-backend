@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::api::model::agenda::Event as ApiEvent;
 use crate::db::model::agenda::Event as DbEvent;
+
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -23,6 +24,7 @@ use crate::{
 };
 
 use super::util::{authorize_against_agenda_id, authorize_against_event_id, event_db_to_api};
+
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CreateEventForAgendaRequest {
