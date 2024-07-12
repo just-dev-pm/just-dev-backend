@@ -9,7 +9,7 @@ use crate::{
         model::{
             agenda::Event,
             asset::Asset,
-            status::{IndexedStatusItem, StatusItem},
+            status::{IndexedStatusContent, StatusContent},
             util::Id,
         },
     },
@@ -274,15 +274,15 @@ pub fn status_pool_db_to_api(
         incomplete: status_pool
             .incomplete
             .iter()
-            .map(|status| IndexedStatusItem {
+            .map(|status| IndexedStatusContent {
                 id: format!("{}", status.number),
-                status: StatusItem {
+                status: StatusContent {
                     name: status.name.clone(),
                     description: status.description.clone(),
                 },
             })
             .collect(),
-        complete: crate::api::model::status::StatusItem {
+        complete: crate::api::model::status::StatusContent {
             name: status_pool.complete.name,
             description: status_pool.complete.description,
         },
