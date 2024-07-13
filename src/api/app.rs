@@ -48,7 +48,10 @@ use super::handler::{
         create_requirement_for_project, delete_requirement, get_requirement_info,
         get_requirements_for_project, patch_requirement,
     },
-    task::{create_task_for_list, delete_task_from_list, get_assigned_tasks_for_user, get_tasks_for_list, patch_task},
+    task::{
+        create_task_for_list, delete_task_from_list, get_assigned_tasks_for_user,
+        get_tasks_for_list, patch_task,
+    },
     task_link::{
         create_task_link_for_project, create_task_link_for_user, delete_task_link,
         get_links_for_task, get_task_links_for_project, get_task_links_for_user, patch_task_link,
@@ -108,7 +111,13 @@ impl App {
         let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
         let cors_layer = CorsLayer::new()
             .allow_origin(["http://localhost:4000".parse::<HeaderValue>().unwrap()])
-            .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS])
+            .allow_methods(vec![
+                Method::GET,
+                Method::POST,
+                Method::OPTIONS,
+                Method::PATCH,
+                Method::DELETE,
+            ])
             .allow_private_network(true)
             .allow_credentials(true)
             .allow_headers([
@@ -152,7 +161,10 @@ impl App {
                     "/api/projects/:project_id/agendas",
                     get(get_agendas_for_project).post(create_agenda_for_project),
                 )
-                .route("/api/users/:user_id/tasks", get(get_assigned_tasks_for_user))
+                .route(
+                    "/api/users/:user_id/tasks",
+                    get(get_assigned_tasks_for_user),
+                )
                 .route(
                     "/api/users/:user_id/agendas",
                     get(get_agendas_for_user).post(create_agenda_for_user),
