@@ -4,15 +4,10 @@ use surrealdb::sql::Thing;
 
 use crate::db::{
     db_context::DbContext,
-    model::{
-        project::Project,
-        user::User,
-    },
+    model::{project::Project, user::User},
 };
 
-use super::utils::{
-    exec_double_query, exec_query, get_io_error, unwrap_things, DbModelId,
-};
+use super::utils::{exec_double_query, exec_query, get_io_error, unwrap_things, DbModelId};
 
 #[derive(Clone, Debug)]
 pub struct UserRepository {
@@ -34,7 +29,10 @@ impl UserRepository {
             .await
             .unwrap();
 
-        let user: Option<User> = response.take(0).unwrap();
+        let user = response
+            .take::<Vec<User>>(0)
+            .map_err(get_io_error)?
+            .pop();
 
         user.ok_or(io::Error::new(io::ErrorKind::NotFound, "User not found"))
     }
@@ -101,6 +99,8 @@ impl UserRepository {
         Ok(unwrap_things(drafts))
     }
 
+
+
     pub async fn query_agenda_by_id(&self, user_id: &str) -> Result<Vec<DbModelId>, io::Error> {
         let mut response = exec_double_query(
             &self.context,
@@ -158,5 +158,4 @@ impl UserRepository {
             .unwrap_or_default();
         Ok(unwrap_things(notifs))
     }
-
 }

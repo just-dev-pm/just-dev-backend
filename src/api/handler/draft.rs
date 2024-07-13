@@ -21,7 +21,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     api::{app::AppState, model::draft::Draft},
-    db::{model::draft::DraftPayload, repository::draft::DraftRepository},
+    db::{model::draft::DraftPayload, repository::{draft::DraftRepository, utils::unwrap_thing}},
     usecase::{draft_collaboration::DraftCollaborationManager, util::auth_backend::AuthBackend},
 };
 
@@ -142,7 +142,7 @@ pub async fn get_drafts_for_user(
         .into_iter()
         .map(|id| {
             let draft_repo = &state.draft_repo;
-            async move { draft_repo.query_draft_by_id(&id).await }
+            async move { draft_repo.partial_query_by_id(&id).await }
         })
         .collect();
 
@@ -153,15 +153,14 @@ pub async fn get_drafts_for_user(
         Ok(drafts) => drafts,
     };
 
-    let api_drafts: Option<Vec<_>> = db_drafts
+    let api_drafts: Vec<_> = db_drafts
         .into_iter()
-        .map(|draft| draft_db_to_api(draft))
+        .map(|draft| Draft {
+            id: unwrap_thing(draft.id.unwrap()),
+            name: draft.name,
+        
+        })
         .collect();
-
-    let api_drafts = match api_drafts {
-        None => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        Some(drafts) => drafts,
-    };
 
     (
         StatusCode::OK,
@@ -229,37 +228,20 @@ pub async fn get_drafts_for_project(
         return value;
     }
 
-    let db_drafts_id = state.project_repo.query_draft_by_id(&project_id).await;
-
-    let db_drafts_id = match db_drafts_id {
-        Ok(drafts) => drafts,
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-    };
-
-    let db_drafts_futures: Vec<_> = db_drafts_id
-        .into_iter()
-        .map(|id| {
-            let draft_repo = &state.draft_repo;
-            async move { draft_repo.query_draft_by_id(&id).await }
-        })
-        .collect();
-
-    let db_drafts = try_join_all(db_drafts_futures).await;
+    let db_drafts = state.project_repo.query_draft_by_id(&project_id).await;
 
     let db_drafts = match db_drafts {
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         Ok(drafts) => drafts,
+        Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
     };
 
-    let api_drafts: Option<Vec<_>> = db_drafts
+    let api_drafts: Vec<_> = db_drafts
         .into_iter()
-        .map(|draft| draft_db_to_api(draft))
+        .map(|draft| Draft {
+            id: unwrap_thing(draft.id.unwrap()),
+            name: draft.name,
+        })
         .collect();
-
-    let api_drafts = match api_drafts {
-        None => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        Some(drafts) => drafts,
-    };
 
     (
         StatusCode::OK,

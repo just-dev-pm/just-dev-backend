@@ -102,8 +102,6 @@ pub async fn patch_user_info(
 
     let db_user = user_api_to_db(user.clone(), &password);
 
-    dbg!(&db_user);
-
     let returned_user = state
         .lock()
         .await

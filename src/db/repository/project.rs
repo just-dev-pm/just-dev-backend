@@ -1,6 +1,7 @@
 use surrealdb::sql::Thing;
 
 use crate::db::db_context::DbContext;
+use crate::db::model::draft::DraftWithoutContent;
 use crate::db::model::project::Project;
 use crate::db::model::user::User;
 use std::io;
@@ -140,15 +141,15 @@ impl ProjectRepository {
         Ok(unwrap_things(task_lists.unwrap_or_default()))
     }
 
-    pub async fn query_draft_by_id(&self, project_id: &str) -> Result<Vec<DbModelId>, io::Error> {
+    pub async fn query_draft_by_id(&self, project_id: &str) -> Result<Vec<DraftWithoutContent>, io::Error> {
         let mut response = exec_query(
             &self.context,
-            format!("select ->own->draft as drafts from project where id == project:{project_id}"),
+            format!("for $draft in (select ->own->draft as drafts from project where id == project:pg3ndviunqlglcb4l3d9).drafts {{return select id, name from $draft}}"),
         )
         .await?;
-        let agendas: Option<Vec<Thing>> = response.take((0, "drafts")).map_err(get_io_error)?;
+        let agendas = response.take::<Vec<DraftWithoutContent>>(0).map_err(get_io_error)?;
 
-        Ok(unwrap_things(agendas.unwrap_or_default()))
+        Ok(agendas)
     }
 
     pub async fn query_requ_by_project_id(

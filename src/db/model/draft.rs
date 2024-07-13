@@ -19,6 +19,13 @@ pub struct DraftPayload {
     pub content: Vec<u8>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DraftWithoutContent {
+    pub id: Option<Thing>,
+    pub name: String,
+}
+
+
 impl Draft {
     pub fn new(name: String, content: &Vec<u8>) -> Self {
         Draft {

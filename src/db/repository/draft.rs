@@ -1,12 +1,11 @@
 use std::io;
 
-
 use crate::db::{
     db_context::DbContext,
-    model::draft::{Draft, DraftPayload},
+    model::draft::{Draft, DraftPayload, DraftWithoutContent},
 };
 
-use super::utils::{custom_io_error, get_io_error, init_draft_content};
+use super::utils::{custom_io_error, exec_query, get_io_error, init_draft_content};
 
 #[derive(Clone)]
 pub struct DraftRepository {
@@ -28,6 +27,22 @@ impl DraftRepository {
             .await
             .map_err(get_io_error)?;
         DraftPayload::from(draft.ok_or(io::Error::new(io::ErrorKind::NotFound, "Draft not found"))?)
+    }
+
+    pub async fn partial_query_by_id(
+        &self,
+        draft_id: &str,
+    ) -> Result<DraftWithoutContent, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!("SELECT id, name FROM draft WHERE id == draft:{}", draft_id),
+        )
+        .await?;
+        response
+            .take::<Vec<DraftWithoutContent>>(0)
+            .map_err(get_io_error)?
+            .pop()
+            .ok_or(custom_io_error("no draft found"))
     }
 
     pub async fn insert_draft_for_user(

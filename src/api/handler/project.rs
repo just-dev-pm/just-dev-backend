@@ -317,8 +317,6 @@ pub async fn patch_project(
 
     let new_db_project = project_api_to_db(new_api_project);
 
-    dbg!(&new_db_project);
-
     let updated_db_project = state
         .project_repo
         .update_project(&new_db_project, &project_id)
@@ -377,8 +375,6 @@ pub async fn gen_invitation_token(
             project: req.project_id,
         },
     );
-
-    dbg!(&invitation_token_repo.tokens);
 
     (
         StatusCode::OK,
@@ -448,8 +444,6 @@ pub async fn get_token_info(
         None => return StatusCode::NOT_FOUND.into_response(),
         Some(kv) => kv.1.clone(),
     };
-
-    dbg!(&invitation_info);
 
     if let Some(value) = authorize_against_user_id(auth_session, &invitation_info.invitee) {
         return value;

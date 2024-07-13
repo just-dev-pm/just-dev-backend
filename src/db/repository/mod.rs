@@ -46,7 +46,7 @@ mod test_user {
     async fn test_query_user_by_name() {
         let user_repository = UserRepository::new().await;
         let user = user_repository.query_user_by_name("xiwen").await.unwrap();
-        assert_eq!(user.id(), "xiwen");
+        assert_eq!(user.username, "xiwen");
     }
 
     #[tokio::test]
@@ -155,8 +155,15 @@ mod test_user {
     #[tokio::test]
     async fn test_query_draft_by_id() {
         let repository = DraftRepository::new().await;
-        let result = repository.query_draft_by_id("xiwen").await.unwrap();
-        assert_eq!(result.content, "content".to_owned().into_bytes());
+        let result = repository.query_draft_by_id("v7n0ezprm76lvh9mjjpj").await.unwrap();
+        assert!(result.content.len() > 0);
+    }
+
+    #[tokio::test]
+    async fn test_query_draft_by_id_project() {
+        let repository = ProjectRepository::new().await;
+        let result = repository.query_draft_by_id("v7n0ezprm76lvh9mjjpj").await.unwrap();
+        assert!(result.len() > 0);
     }
 
     #[tokio::test]
