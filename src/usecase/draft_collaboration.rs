@@ -49,5 +49,5 @@ async fn new_room_for_draft_payload(draft_payload: &DraftPayload) -> Arc<Broadca
         }
         Arc::new(RwLock::new(Awareness::new(doc)))
     };
-    Arc::new(BroadcastGroup::new(awareness.clone(), 32).await)
+    Arc::new(BroadcastGroup::new(awareness.clone(), 1024).await)
 }

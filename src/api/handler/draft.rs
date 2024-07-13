@@ -379,7 +379,27 @@ async fn handle_socket(
         }
         Err(err) => {
             dbg!(err);
+            let old_draft = draft_repo.query_draft_by_id(&draft_id).await;
+            match old_draft {
+                Err(_) => (),
+                Ok(old_draft) => {
+                    let awareness = bcast.awareness().read().await;
+                    let doc = awareness.doc();
+                    let txn = doc.transact();
+                    let rev = txn.snapshot();
+                    let mut encoder = EncoderV1::new();
+                    txn.encode_state_from_snapshot(&rev, &mut encoder).unwrap();
+                    let update = encoder.to_vec();
+                    let new_draft = DraftPayload {
+                        content: update,
+                        ..old_draft
+                    };
 
+                    tokio::spawn(async move {
+                        let _ = draft_repo.update_draft(new_draft).await;
+                    });
+                }
+            }
             ()
         }
     }
