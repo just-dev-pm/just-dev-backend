@@ -1,29 +1,35 @@
-use axum::{http::StatusCode, response::IntoResponse};
+use std::io::{self, Error};
+
+use axum::{http::StatusCode, response::IntoResponse, Json};
 use axum_login::{AuthSession, AuthUser};
 use surrealdb::sql::Thing;
 use tracing::event;
 
-use crate::api::model::{
-            agenda::Event,
-            asset::Asset,
-                status::{IndexedStatusContent, StatusContent},
-            util::Id,
-        };
 use crate::db::{
-        model::{
-            project::Project,
-            status::{Status, StatusPool},
-            task::Task,
-        },
-        repository::{
-            agenda::AgendaRepository,
-            project::ProjectRepository,
-            task::{Entity, TaskRepository},
-            user::UserRepository,
-            utils::unwrap_thing,
-        },
-    };
+    model::{
+        project::Project,
+        status::{Status, StatusPool},
+        task::Task,
+    },
+    repository::{
+        agenda::AgendaRepository,
+        project::ProjectRepository,
+        task::{Entity, TaskRepository},
+        user::UserRepository,
+        utils::unwrap_thing,
+    },
+};
 use crate::usecase::util::auth_backend::AuthBackend;
+use crate::{
+    api::model::{
+        agenda::Event,
+        asset::Asset,
+        status::{IndexedStatusContent, StatusContent},
+        task::{TaskRelation, TaskRelationType},
+        util::Id,
+    },
+    db::{model::task::TaskLink, repository::utils::custom_io_error},
+};
 
 pub fn authorize_against_user_id(
     auth_session: AuthSession<AuthBackend>,
@@ -135,6 +141,91 @@ pub async fn authorize_against_event_id(
             None
         }
     }
+}
+
+pub async fn authorize_against_task_id(
+    auth_session: &AuthSession<AuthBackend>,
+    project_repo: &ProjectRepository,
+    task_repo: &TaskRepository,
+    task_id: &str,
+) -> Option<axum::http::Response<axum::body::Body>> {
+    let task_list_id = match task_repo.query_task_list_id_by_task(task_id).await {
+        Ok(_id) => _id,
+        Err(err) => {
+            return Some((StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response())
+        }
+    };
+
+    if let Some(value) = authorize_against_task_list_id(
+        auth_session.to_owned(),
+        project_repo,
+        task_repo,
+        &task_list_id,
+    )
+    .await
+    {
+        return Some(value);
+    };
+    None
+}
+
+pub async fn authorize_against_task_link_id(
+    auth_session: &AuthSession<AuthBackend>,
+    project_repo: &ProjectRepository,
+    task_repo: &TaskRepository,
+    link_id: &str,
+) -> Option<axum::http::Response<axum::body::Body>> {
+    let link = match task_repo.query_task_link_by_id(&link_id).await {
+        Ok(_link) => _link,
+        Err(err) => {
+            return Some(
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response(),
+            );
+        }
+    };
+    let link = match task_link_db_to_api(link) {
+        Ok(link) => link,
+        Err(_) => {
+            return Some(
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json("Failed to convert link".to_string()),
+                )
+                    .into_response(),
+            );
+        }
+    };
+    if let Some(value) =
+        authorize_against_task_id(auth_session, project_repo, task_repo, &link.to.id).await
+    {
+        return Some(value);
+    }
+
+    if let Some(value) =
+        authorize_against_task_id(auth_session, project_repo, task_repo, &link.from.id).await
+    {
+        return Some(value);
+    }
+    None
+}
+
+pub async fn authorize_against_task_link(
+    auth_session: &AuthSession<AuthBackend>,
+    project_repo: &ProjectRepository,
+    task_repo: &TaskRepository,
+    from_id: &str,
+    to_id: &str,
+) -> Option<axum::http::Response<axum::body::Body>> {
+    if let Some(value) = authorize_against_task_id(auth_session, project_repo, task_repo, from_id).await
+    {
+        return Some(value);
+    }
+
+    if let Some(value) = authorize_against_task_id(auth_session, project_repo, task_repo, to_id).await
+    {
+        return Some(value);
+    }
+    None
 }
 
 pub async fn authorize_against_task_list_id(
@@ -489,5 +580,38 @@ pub fn task_db_to_api(task: Task) -> crate::api::model::task::Task {
             false => crate::api::model::status::Status::Incomplete { id: task.status },
         },
         deadline: task.ddl.unwrap_or_default().0,
+    }
+}
+
+pub fn task_link_db_to_api(link: TaskLink) -> Result<TaskRelation, Error> {
+    Ok(TaskRelation {
+        id: unwrap_thing(
+            link.id
+                .ok_or(custom_io_error("Thing unwrap failed in task relation!"))?,
+        ),
+        from: Id {
+            id: unwrap_thing(
+                link.incoming
+                    .ok_or(custom_io_error("Thing unwrap failed in task relation!"))?,
+            ),
+        },
+        to: Id {
+            id: unwrap_thing(
+                link.outgoing
+                    .ok_or(custom_io_error("Thing unwrap failed in task relation!"))?,
+            ),
+        },
+        category: match link.kind.as_str() {
+            "auto" => TaskRelationType::Auto,
+            "dep" => TaskRelationType::Dep,
+            _ => return Err(custom_io_error("Exception in task relation kind!")),
+        },
+    })
+}
+
+pub fn task_relation_category_to_kind<'a>(category: &'a TaskRelationType) -> &'a str {
+    match category {
+        TaskRelationType::Auto => "auto",
+        TaskRelationType::Dep => "dep",
     }
 }

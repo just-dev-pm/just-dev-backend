@@ -1,7 +1,8 @@
-use std::sync::Arc;
+use std::{iter::Skip, sync::Arc};
 
 use axum::{
     extract::{Path, State},
+    http::StatusCode,
     response::IntoResponse,
     Json,
 };
@@ -17,7 +18,14 @@ use crate::{
             util::Id,
         },
     },
-    usecase::util::auth_backend::AuthBackend,
+    db::{model::task::TaskLink, repository::utils::unwrap_thing},
+    usecase::{task_stream::{refresh_task_status, refresh_task_status_entry}, util::auth_backend::AuthBackend},
+};
+
+use super::util::{
+    authorize_against_project_id, authorize_against_task_id, authorize_against_task_link,
+    authorize_against_task_link_id, authorize_against_user_id, task_link_db_to_api,
+    task_relation_category_to_kind,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -30,7 +38,38 @@ pub async fn get_links_for_task(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(task_id): Path<String>,
 ) -> impl IntoResponse {
-    todo!()
+    let state = state.lock().await;
+    if let Some(value) = authorize_against_task_id(
+        &auth_session,
+        &state.project_repo,
+        &state.task_repo,
+        &task_id,
+    )
+    .await
+    {
+        return value;
+    }
+
+    let task_links = match state.task_repo.query_task_links_by_task_id(&task_id).await {
+        Ok(_links) => _links,
+        Err(err) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response()
+        }
+    };
+
+    (
+        StatusCode::OK,
+        Json(GetLinksForTaskResponse {
+            task_links: task_links
+                .into_iter()
+                .filter_map(|link| match task_link_db_to_api(link) {
+                    Ok(link) => Some(link),
+                    Err(_) => None,
+                })
+                .collect(),
+        }),
+    )
+        .into_response()
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -53,7 +92,48 @@ pub async fn create_task_link_for_user(
     Path(user_id): Path<String>,
     Json(req): Json<CreateTaskLinkForUserRequest>,
 ) -> impl IntoResponse {
-    todo!()
+    let ref state = state.lock().await;
+    if let Some(value) = authorize_against_user_id(auth_session.to_owned(), &user_id) {
+        return value;
+    }
+    if let Some(value) = authorize_against_task_link(
+        &auth_session,
+        &state.project_repo,
+        &state.task_repo,
+        &req.from.id,
+        &req.to.id,
+    )
+    .await
+    {
+        return value;
+    }
+
+    let task_link_result = state
+        .task_repo
+        .insert_task_link(
+            &req.from.id,
+            &req.to.id,
+            task_relation_category_to_kind(&req.category),
+        )
+        .await;
+    let task_link = match task_link_result {
+        Ok(_link) => _link,
+        Err(err) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response()
+        }
+    };
+
+    if let Err(err) = refresh_task_status(&req.to.id, &state.task_repo).await {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response();
+    } 
+
+    (
+        StatusCode::OK,
+        Json(CreateTaskLinkForUserResponse {
+            relation: task_link_db_to_api(task_link).unwrap(),
+        }),
+    )
+        .into_response()
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -70,13 +150,58 @@ pub struct CreateTaskLinkForProjectResponse {
     relation: TaskRelation,
 }
 
+//TODO: check if the tasks in project
 pub async fn create_task_link_for_project(
     auth_session: AuthSession<AuthBackend>,
     State(state): State<Arc<Mutex<AppState>>>,
     Path(project_id): Path<String>,
     Json(req): Json<CreateTaskLinkForProjectRequest>,
 ) -> impl IntoResponse {
-    todo!()
+    let ref state = state.lock().await;
+    if let Some(value) =
+        authorize_against_project_id(auth_session.to_owned(), &state.project_repo, &project_id)
+            .await
+    {
+        return value;
+    }
+    if let Some(value) = authorize_against_task_link(
+        &auth_session,
+        &state.project_repo,
+        &state.task_repo,
+        &req.from.id,
+        &req.to.id,
+    )
+    .await
+    {
+        return value;
+    }
+
+    let task_link_result = state
+        .task_repo
+        .insert_task_link(
+            &req.from.id,
+            &req.to.id,
+            task_relation_category_to_kind(&req.category),
+        )
+        .await;
+    let task_link = match task_link_result {
+        Ok(_link) => _link,
+        Err(err) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response()
+        }
+    };
+
+    if let Err(err) = refresh_task_status(&req.to.id, &state.task_repo).await {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response();
+    } 
+
+    (
+        StatusCode::OK,
+        Json(CreateTaskLinkForProjectResponse {
+            relation: task_link_db_to_api(task_link).unwrap(),
+        }),
+    )
+        .into_response()
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -110,7 +235,30 @@ pub async fn delete_task_link(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(link_id): Path<String>,
 ) -> impl IntoResponse {
-    todo!()
+    let state = state.lock().await;
+    if let Some(value) = authorize_against_task_link_id(
+        &auth_session,
+        &state.project_repo,
+        &state.task_repo,
+        &link_id,
+    )
+    .await
+    {
+        return value;
+    }
+
+    match state.task_repo.delete_task_link_by_id(&link_id).await {
+        Ok(_link) => {
+            if let Err(err) =
+                refresh_task_status(&unwrap_thing(_link.outgoing.unwrap()), &state.task_repo)
+                    .await
+            {
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response();
+            }
+            StatusCode::OK.into_response()
+        }
+        Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response(),
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -131,5 +279,52 @@ pub async fn patch_task_link(
     Path(link_id): Path<String>,
     Json(req): Json<PatchTaskLinkRequest>,
 ) -> impl IntoResponse {
-    todo!()
+    let state = state.lock().await;
+    if let Some(value) = authorize_against_task_link_id(
+        &auth_session,
+        &state.project_repo,
+        &state.task_repo,
+        &link_id,
+    )
+    .await
+    {
+        return value;
+    }
+
+    let link = match state.task_repo.query_task_link_by_id(&link_id).await {
+        Ok(_link) => _link,
+        Err(err) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response()
+        }
+    };
+
+    let response = match state
+        .task_repo
+        .update_task_link(
+            &link_id,
+            &TaskLink {
+                id: None,
+                kind: task_relation_category_to_kind(&req.category).to_owned(),
+                ..link.to_owned()
+            },
+        )
+        .await
+    {
+        Ok(_link) => (
+            StatusCode::OK,
+            Json(PatchTaskLinkResponse {
+                task_relation: task_link_db_to_api(_link).unwrap(),
+            }),
+        )
+            .into_response(),
+        Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response(),
+    };
+
+    if let Err(err) =
+        refresh_task_status(&unwrap_thing(link.outgoing.unwrap()), &state.task_repo).await
+    {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response();
+    }
+
+    response
 }

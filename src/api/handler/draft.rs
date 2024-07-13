@@ -351,7 +351,7 @@ async fn handle_socket(
 
     let sub = bcast.subscribe(sender, receiver);
 
-    // TODO; fix future is not send error
+    // TODO: fix future is not send error
     match sub.completed().await {
         Ok(_) => {
             let old_draft = draft_repo.query_draft_by_id(&draft_id).await;

@@ -19,8 +19,7 @@ use crate::{
         model::{status::Status, task::Task, util::Id},
     },
     usecase::{
-        notification::{assign_task_to_user, deassign_task_for_user},
-        util::auth_backend::AuthBackend,
+        notification::{assign_task_to_user, deassign_task_for_user}, task_stream::{check_task_switch_complete, refresh_task_status_entry, TaskSwitchable}, util::auth_backend::AuthBackend
     },
 };
 
@@ -229,11 +228,32 @@ pub async fn patch_task(
         ..task.clone()
     };
 
+    let mut switchable = TaskSwitchable::TrueAndFalse;
+
+    if let Some(_) = req.status {
+        switchable = match check_task_switch_complete(&task_id, &state.task_repo).await {
+            Ok(_result) => _result,
+            Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response(),
+        }
+    }
+
     (new_task.complete, new_task.status) = match req.status {
-        Some(Status::Complete) => (true, "complete".to_owned()),
-        Some(Status::Incomplete { id }) => (false, id),
+        Some(Status::Complete) => {
+            match switchable {
+                TaskSwitchable::False => (false, "incomplete".to_owned()),
+                _ => (true, "complete".to_owned()),
+            }     
+        },
+        Some(Status::Incomplete { id }) => {
+            match switchable {
+                TaskSwitchable::True => (true, id),
+                _ => (false, id),
+            }
+        },
         None => (task.complete, task.status),
     };
+
+    
 
     let assignees = match state.task_repo.query_assignees_of_task(&task_id).await {
         Ok(_assignees) => _assignees,
@@ -271,6 +291,12 @@ pub async fn patch_task(
 
     if let Err(err) = state.task_repo.update_task_by_id(&task_id, &new_task).await {
         return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response();
+    }
+
+    if task.complete != new_task.complete {
+        if let Err(err) = refresh_task_status_entry(&task_id, &state.task_repo).await {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response();
+        } 
     }
 
     (

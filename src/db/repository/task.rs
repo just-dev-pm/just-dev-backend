@@ -31,14 +31,18 @@ impl TaskRepository {
     }
 
     #[deprecated]
-    pub async fn query_task_is_following(&self, task_id: &str) -> Result<Option<DbModelId>, io::Error> {
+    pub async fn query_task_is_following(
+        &self,
+        task_id: &str,
+    ) -> Result<Option<DbModelId>, io::Error> {
         let mut response = exec_query(
             &self.context,
             format!(
                 "SELECT ->follow->task as tasks FROM task WHERE id == task:{}",
                 task_id
             ),
-        ).await?;
+        )
+        .await?;
         let tasks = response
             .take::<Option<Vec<Thing>>>("tasks")
             .map_err(get_io_error)?
@@ -57,7 +61,8 @@ impl TaskRepository {
                 "SELECT <-own.in as source FROM task_list WHERE id == task_list:{}",
                 task_list_id
             ),
-        ).await?;
+        )
+        .await?;
         let source = response
             .take::<Option<Vec<Thing>>>("source")
             .map_err(get_io_error)?
@@ -173,9 +178,16 @@ impl TaskRepository {
     // }")]
     /// Don't use this func directly because of no notification
     #[doc(hidden)]
-    pub async fn _assign_task_to_user(&self, task_id: &str, user_id: &str) -> Result<(), io::Error> {
-
-        let _ = exec_query(&self.context, format!("relate task:{task_id} -> assign -> user:{user_id}")).await?;
+    pub async fn _assign_task_to_user(
+        &self,
+        task_id: &str,
+        user_id: &str,
+    ) -> Result<(), io::Error> {
+        let _ = exec_query(
+            &self.context,
+            format!("relate task:{task_id} -> assign -> user:{user_id}"),
+        )
+        .await?;
         Ok(())
     }
 
@@ -219,22 +231,15 @@ impl TaskRepository {
         &self,
         task_id: &str,
     ) -> Result<Vec<TaskLink>, io::Error> {
-
         let mut response = exec_double_query(
             &self.context,
             format!("select * from link where out.id == task:{task_id}"),
             format!("select * from link where in.id == task:{task_id}"),
         )
         .await?;
-        let mut tasks: Vec<_> = response
-            .take::<Vec<TaskLink>>(0)
-            .map_err(get_io_error)?;
-            
-        tasks.extend(
-            response
-                .take::<Vec<TaskLink>>(1)
-                .map_err(get_io_error)?
-        );
+        let mut tasks: Vec<_> = response.take::<Vec<TaskLink>>(0).map_err(get_io_error)?;
+
+        tasks.extend(response.take::<Vec<TaskLink>>(1).map_err(get_io_error)?);
 
         Ok(tasks)
     }
@@ -243,15 +248,12 @@ impl TaskRepository {
         &self,
         task_id: &str,
     ) -> Result<Vec<TaskLink>, io::Error> {
-
         let mut response = exec_query(
             &self.context,
             format!("select * from link where in.id == task:{task_id}"),
         )
         .await?;
-        let tasks: Vec<_> = response
-            .take::<Vec<TaskLink>>(0)
-            .map_err(get_io_error)?;
+        let tasks: Vec<_> = response.take::<Vec<TaskLink>>(0).map_err(get_io_error)?;
 
         Ok(tasks)
     }
@@ -260,32 +262,38 @@ impl TaskRepository {
         &self,
         task_id: &str,
     ) -> Result<Vec<TaskLink>, io::Error> {
-
         let mut response = exec_query(
             &self.context,
             format!("select * from link where out.id == task:{task_id}"),
         )
         .await?;
-        let tasks: Vec<_> = response
-            .take::<Vec<TaskLink>>(0)
-            .map_err(get_io_error)?;
+        let tasks: Vec<_> = response.take::<Vec<TaskLink>>(0).map_err(get_io_error)?;
 
         Ok(tasks)
     }
 
-    pub async fn insert_task_link(&self, former: &str, latter: &str, kind: &str) -> Result<TaskLink, io::Error> {
+    pub async fn insert_task_link(
+        &self,
+        former: &str,
+        latter: &str,
+        kind: &str,
+    ) -> Result<TaskLink, io::Error> {
         let mut response = exec_query(
             &self.context,
-            format!(
-                "relate task:{former} -> link -> task:{latter} set type = '{kind}'",
-            )
-        ).await?;
+            format!("relate task:{former} -> link -> task:{latter} set type = '{kind}'",),
+        )
+        .await?;
         let link = response.take::<Option<TaskLink>>(0).map_err(get_io_error)?;
         link.ok_or(custom_io_error("Create link fail"))
     }
 
     pub async fn delete_task_link_by_id(&self, task_link_id: &str) -> Result<TaskLink, io::Error> {
-        let task_link: Option<TaskLink> = self.context.db.delete(("link", task_link_id)).await.map_err(get_io_error)?;
+        let task_link: Option<TaskLink> = self
+            .context
+            .db
+            .delete(("link", task_link_id))
+            .await
+            .map_err(get_io_error)?;
         task_link.ok_or(custom_io_error("Delete link fail"))
     }
 
@@ -319,11 +327,24 @@ impl TaskRepository {
     //     Ok(unwrap_things(assignees))
     // }
 
-    pub async fn query_assignees_of_task(&self, task_id: &str) -> Result<Vec<DbModelId>, io::Error> {
-        let mut response = exec_query(&self.context, format!("SELECT ->assign->user as assignees FROM task where id == task:{}", task_id)).await?;
-        let assignees = response.take::<Option<Vec<Thing>>>("assignees").map_err(get_io_error)?.unwrap_or_default();
+    pub async fn query_assignees_of_task(
+        &self,
+        task_id: &str,
+    ) -> Result<Vec<DbModelId>, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!(
+                "SELECT ->assign->user as assignees FROM task where id == task:{}",
+                task_id
+            ),
+        )
+        .await?;
+        let assignees = response
+            .take::<Option<Vec<Thing>>>("assignees")
+            .map_err(get_io_error)?
+            .unwrap_or_default();
         Ok(unwrap_things(assignees))
-    } 
+    }
 
     // #[deprecated]
     // pub async fn deassign_task_for_user(
@@ -332,8 +353,8 @@ impl TaskRepository {
     //     user_id: &str,
     // ) -> Result<Task, io::Error> {
     //     let mut response = exec_double_query(
-    //         &self.context, 
-    //         format!("(select <-follow<-task as events from event where id == event:{event_id}).events"), 
+    //         &self.context,
+    //         format!("(select <-follow<-task as events from event where id == event:{event_id}).events"),
     //         format!("(select ->have->task_list as assigned from agenda where id == agenda:{user_id}).assigned")).await?;
     //     let events = unwrap_things(response
     //         .take::<Option<Vec<Thing>>>(0)
@@ -349,18 +370,26 @@ impl TaskRepository {
     // }
 
     /// Don't use this func directly because of no notification
-    pub async fn _deassign_task_for_user(&self, task_id: &str, user_id: &str) -> Result<(), io::Error> {
-        let _ = exec_query(&self.context, format!("DELETE task:{task_id}->assign WHERE out==user:{user_id}")).await?;
+    pub async fn _deassign_task_for_user(
+        &self,
+        task_id: &str,
+        user_id: &str,
+    ) -> Result<(), io::Error> {
+        let _ = exec_query(
+            &self.context,
+            format!("DELETE task:{task_id}->assign WHERE out==user:{user_id}"),
+        )
+        .await?;
         Ok(())
     }
 
-    pub async fn insert_task_list_for_project(&self, project_id: &str, name: &str) -> Result<TaskList, io::Error> {
-        let task_list = create_resource(
-            &self.context,
-            &TaskList::new(name.to_string()),
-            "task_list",
-        )
-        .await?;
+    pub async fn insert_task_list_for_project(
+        &self,
+        project_id: &str,
+        name: &str,
+    ) -> Result<TaskList, io::Error> {
+        let task_list =
+            create_resource(&self.context, &TaskList::new(name.to_string()), "task_list").await?;
 
         let _ = self
             .context
@@ -375,7 +404,10 @@ impl TaskRepository {
         Ok(task_list)
     }
 
-    pub async fn query_all_tasks_of_task_list(&self, task_list: &str) -> Result<Vec<DbModelId>, io::Error> {
+    pub async fn query_all_tasks_of_task_list(
+        &self,
+        task_list: &str,
+    ) -> Result<Vec<DbModelId>, io::Error> {
         let mut response = exec_query(
             &self.context,
             format!(
@@ -394,43 +426,78 @@ impl TaskRepository {
     pub async fn query_task_list_id_by_task(&self, task_id: &str) -> Result<DbModelId, io::Error> {
         let mut response = exec_query(
             &self.context,
-            format!(
-                "SELECT <-have<-task_list as task_lists FROM task where id == task:{task_id}"
-            )
-        ).await?;
+            format!("SELECT <-have<-task_list as task_lists FROM task where id == task:{task_id}"),
+        )
+        .await?;
         let mut task_lists = response
             .take::<Option<Vec<Thing>>>("task_lists")
             .map_err(get_io_error)?
             .unwrap_or_default();
-        Ok(unwrap_thing(task_lists.pop().ok_or(custom_io_error("Task has no parent task list!"))?))
+        Ok(unwrap_thing(
+            task_lists
+                .pop()
+                .ok_or(custom_io_error("Task has no parent task list!"))?,
+        ))
     }
 
-    pub async fn query_assigned_tasks_by_user(&self, user_id: &str) -> Result<Vec<(Task, DbModelId, DbModelId)>, io::Error> {
+    pub async fn query_assigned_tasks_by_user(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<(Task, DbModelId, DbModelId)>, io::Error> {
         // task_id  task_list_id  source_id
         let mut response = exec_query(
             &self.context,
             format!(
                 "SELECT <-assign<-task as tasks FROM user where id == user:{}",
                 user_id
-            )
-        ).await?;
-        let tasks = unwrap_things(response
-            .take::<Option<Vec<Thing>>>("tasks")
-            .map_err(get_io_error)?
-            .unwrap_or_default());
-        let futures = tasks.into_iter().map(|task_id| async move {
-            let task = self.query_task_by_id(&task_id).await?;
-            let task_list = self.query_task_list_id_by_task(&task_id).await?;
-            let source = self.query_task_list_source(&task_list).await?;
+            ),
+        )
+        .await?;
+        let tasks = unwrap_things(
+            response
+                .take::<Option<Vec<Thing>>>("tasks")
+                .map_err(get_io_error)?
+                .unwrap_or_default(),
+        );
+        let futures = tasks
+            .into_iter()
+            .map(|task_id| async move {
+                let task = self.query_task_by_id(&task_id).await?;
+                let task_list = self.query_task_list_id_by_task(&task_id).await?;
+                let source = self.query_task_list_source(&task_list).await?;
 
-            Ok::<_, io::Error>((task, task_list, source.id.to_string()))
-        }).collect::<Vec<_>>();
-        Ok(try_join_all(futures).await?) 
-    
+                Ok::<_, io::Error>((task, task_list, source.id.to_string()))
+            })
+            .collect::<Vec<_>>();
+        Ok(try_join_all(futures).await?)
     }
 
     pub async fn delete_task(&self, task_id: &str) -> Result<Task, io::Error> {
         let task: Task = delete_resource(&self.context, task_id, "task").await?;
         Ok(task)
+    }
+
+    pub async fn task_links_to_tasks(
+        &self,
+        task_links: Vec<TaskLink>,
+    ) -> Result<Vec<Task>, io::Error> {
+        let result_futures: Vec<_> = task_links
+            .into_iter()
+            .map(|link| async move {
+                let pre_task = self
+                    .query_task_by_id(&unwrap_thing(link.to_owned().incoming.unwrap()))
+                    .await?;
+                Ok::<_, io::Error>(pre_task)
+            })
+            .collect();
+        try_join_all(result_futures).await
+    }
+
+    pub async fn query_task_link_by_id(&self, task_link_id: &str) -> Result<TaskLink, io::Error> {
+        select_resourse(&self.context, task_link_id, "task_link").await
+    }
+
+    pub async fn update_task_link(&self, task_link_id: &str, task_link: &TaskLink) -> Result<TaskLink, io::Error> {
+        update_resource(&self.context, task_link_id, task_link, "task_link").await
     }
 }
