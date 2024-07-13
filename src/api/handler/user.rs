@@ -2,24 +2,24 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Path, State},
-    http::{status::InvalidStatusCode, StatusCode},
+    http::StatusCode,
     response::IntoResponse,
     Json,
 };
-use axum_login::{AuthSession, AuthUser};
+use axum_login::AuthSession;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
 use crate::{
     api::{
         app::AppState,
-        model::{project::Project, status::StatusPool, user::User},
+        model::{status::StatusPool, user::User},
     },
     usecase::util::auth_backend::AuthBackend,
 };
 
 use super::util::{
-    authorize_against_project_id, authorize_against_user_id, project_db_to_api, user_api_to_db,
+    authorize_against_user_id, user_api_to_db,
     user_db_to_api,
 };
 

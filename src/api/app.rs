@@ -17,14 +17,11 @@ use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 
 use crate::{
-    db::{
-        model::agenda::Agenda,
-        repository::{
+    db::repository::{
             agenda::AgendaRepository, draft::DraftRepository, notification::NotificationRepository,
             project::ProjectRepository, requirement::RequirementRepository, task::TaskRepository,
             user::UserRepository,
         },
-    },
     usecase::{
         draft_collaboration::DraftCollaborationManager,
         invitation_token::InvitationTokenRepository, util::auth_backend::AuthBackend,
@@ -49,7 +46,7 @@ use super::handler::{
     },
     requirement::{
         create_requirement_for_project, delete_requirement, get_requirement_info,
-        get_requirements_for_project, patch_requirement, GetRequirementsForProjectResponse,
+        get_requirements_for_project, patch_requirement,
     },
     task::{create_task_for_list, delete_task_from_list, get_assigned_tasks_for_user, get_tasks_for_list, patch_task},
     task_link::{

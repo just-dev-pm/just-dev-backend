@@ -17,7 +17,7 @@ use crate::{
         model::{project::Project, status::StatusPool, user::User},
     },
     usecase::{
-        invitation_token::{self, InvitationInfo},
+        invitation_token::InvitationInfo,
         util::auth_backend::AuthBackend,
     },
 };

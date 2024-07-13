@@ -2,7 +2,7 @@ use std::io;
 
 use axum_login::AuthUser;
 
-use crate::db::{model::user::User, repository::{agenda::AgendaRepository, task::TaskRepository, user::UserRepository, utils::{exec_query, get_str_id}}};
+use crate::db::{model::user::User, repository::{agenda::AgendaRepository, task::TaskRepository, user::UserRepository}};
 use crate::db::repository::utils::get_io_error;
 
 

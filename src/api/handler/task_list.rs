@@ -6,8 +6,8 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use axum_login::{AuthSession, AuthUser};
-use futures::{future::try_join_all, Future};
+use axum_login::AuthSession;
+use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 

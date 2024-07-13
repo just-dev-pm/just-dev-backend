@@ -23,13 +23,10 @@ use crate::{
     },
 };
 
-use super::{
-    user::PatchUserInfoRequest,
-    util::{
+use super::util::{
         authorize_against_task_list_id, authorize_against_user_id, task_db_to_api,
         task_db_to_api_assigned,
-    },
-};
+    };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetTasksForList {

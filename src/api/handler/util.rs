@@ -1,20 +1,18 @@
-use std::io::{self, Error};
+use std::io::Error;
 
 use axum::{http::StatusCode, response::IntoResponse, Json};
 use axum_login::{AuthSession, AuthUser};
 use surrealdb::sql::Thing;
-use tracing::event;
 
 use crate::db::{
     model::{
-        project::Project,
         status::{Status, StatusPool},
         task::Task,
     },
     repository::{
         agenda::AgendaRepository,
         project::ProjectRepository,
-        task::{Entity, TaskRepository},
+        task::TaskRepository,
         user::UserRepository,
         utils::unwrap_thing,
     },

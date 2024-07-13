@@ -14,9 +14,9 @@ use tokio::sync::Mutex;
 use crate::{
     api::{
         app::AppState,
-        model::{asset::Asset, notification::Notification},
+        model::notification::Notification,
     },
-    db::{model::notification::NotificationSource, repository::utils::unwrap_thing},
+    db::repository::utils::unwrap_thing,
     usecase::util::auth_backend::AuthBackend,
 };
 

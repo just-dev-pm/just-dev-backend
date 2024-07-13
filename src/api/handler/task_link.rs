@@ -1,4 +1,4 @@
-use std::{iter::Skip, sync::Arc};
+use std::sync::Arc;
 
 use axum::{
     extract::{Path, State},
@@ -7,7 +7,7 @@ use axum::{
     Json,
 };
 use axum_login::AuthSession;
-use serde::{de::IntoDeserializer, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -19,7 +19,7 @@ use crate::{
         },
     },
     db::{model::task::TaskLink, repository::utils::unwrap_thing},
-    usecase::{task_stream::{refresh_task_status, refresh_task_status_entry}, util::auth_backend::AuthBackend},
+    usecase::{task_stream::refresh_task_status, util::auth_backend::AuthBackend},
 };
 
 use super::util::{

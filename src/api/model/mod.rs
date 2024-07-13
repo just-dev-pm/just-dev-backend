@@ -11,17 +11,15 @@ pub mod util;
 
 #[cfg(test)]
 mod tests {
-    use std::default;
 
     use self::{
-        status::{IndexedStatusContent, Status, StatusContent, StatusPool},
-        task::{Task, TaskRelation},
+        task::TaskRelation,
         user::User,
         util::Id,
     };
 
     use super::*;
-    use chrono::{DateTime, TimeZone, Utc};
+    
     use serde_json;
 
     #[test]

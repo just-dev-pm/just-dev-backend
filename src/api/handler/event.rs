@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use crate::db::repository::utils::{get_str_id, unwrap_thing};
+use crate::db::repository::utils::get_str_id;
 use crate::usecase::notification::deassign_event_for_user;
-use crate::{api::model::agenda::Event as ApiEvent, usecase::notification::assign_event_for_user};
+use crate::usecase::notification::assign_event_for_user;
 use crate::db::model::agenda::Event as DbEvent;
 
 use axum::{
@@ -14,7 +14,6 @@ use axum::{
 use axum_login::AuthSession;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use surrealdb::opt::auth;
 use tokio::sync::Mutex;
 
 use crate::{
