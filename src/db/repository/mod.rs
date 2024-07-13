@@ -155,7 +155,7 @@ mod test_user {
     #[tokio::test]
     async fn test_query_draft_by_id() {
         let repository = DraftRepository::new().await;
-        let result = repository.query_draft_by_id("v7n0ezprm76lvh9mjjpj").await.unwrap();
+        let result = repository.query_draft_by_id("8m0qx60wj62fy3hkzfkg").await.unwrap();
         assert!(result.content.len() > 0);
     }
 
