@@ -6,7 +6,8 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use octocrate_webhooks::WebhookPullRequestClosed;
+use octocrate::PullRequest;
+use octocrate_webhooks::{WebhookPullRequestClosed, WebhookPullRequestClosedPullRequest};
 use tokio::sync::Mutex;
 
 use crate::{api::app::AppState, db::repository::utils::unwrap_thing};
@@ -31,6 +32,14 @@ pub async fn handle_pull_request_event(
     Json(value): Json<serde_json::Value>,
 ) -> impl IntoResponse {
     if let Ok(req) = serde_json::from_value::<WebhookPullRequestClosed>(value) {
+        if let WebhookPullRequestClosedPullRequest::PullRequest(_pr) = req.pull_request {
+            if !_pr.merged {
+                return StatusCode::OK.into_response();
+            }
+        } else {
+            return StatusCode::OK.into_response();
+        };
+        dbg!(&req.action);
         let state = state.lock().await;
         let tasks = match state.task_repo.query_task_by_pr_number(req.number).await {
             Ok(tasks) => tasks,
