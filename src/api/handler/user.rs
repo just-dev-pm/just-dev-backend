@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Request, State},
     http::StatusCode,
+    middleware::Next,
     response::IntoResponse,
-    Json,
+    routing::get,
+    Json, Router,
 };
 use axum_login::AuthSession;
 use serde::{Deserialize, Serialize};
@@ -18,15 +20,27 @@ use crate::{
     usecase::util::auth_backend::AuthBackend,
 };
 
-use super::util::{
-    authorize_against_user_id, user_api_to_db,
-    user_db_to_api,
+use super::{
+    agenda, draft, notification, project::get_projects_for_user, task, task_link, task_list, util::{authorize_against_user_id, user_api_to_db, user_db_to_api}
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetUserInfoResponse {
     #[serde(flatten)]
     user: User,
+}
+
+pub fn router() -> Router<Arc<Mutex<AppState>>> {
+    let router = Router::new()
+        .merge(notification::user_router())
+        .merge(task_list::user_router())
+        .merge(task_link::user_router())
+        .merge(agenda::user_router())
+        .merge(draft::user_router())
+        .route("/projects", get(get_projects_for_user))
+        .route("/", get(get_user_info).patch(patch_user_info));
+
+    Router::new().nest("/:user_id", router)
 }
 
 pub async fn get_user_info(

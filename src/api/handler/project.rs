@@ -4,28 +4,45 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    Json,
+    routing::{get, post},
+    Json, Router,
 };
 use axum_login::{AuthSession, AuthUser};
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
+use crate::api::handler::{agenda, requirement};
 use crate::{
     api::{
         app::AppState,
         model::{pr::PullRequest, project::Project, status::StatusPool, user::User},
     },
-    usecase::{
-        invitation_token::InvitationInfo,
-        util::auth_backend::AuthBackend,
-    },
+    usecase::{invitation_token::InvitationInfo, util::auth_backend::AuthBackend},
 };
 
-use super::util::{
-    authorize_admin_against_project_id, authorize_against_project_id, authorize_against_user_id,
-    project_api_to_db, project_db_to_api, user_db_to_api,
+use super::{
+    draft, task_link, task_list, util::{
+        authorize_admin_against_project_id, authorize_against_project_id,
+        authorize_against_user_id, project_api_to_db, project_db_to_api, user_db_to_api,
+    }
 };
+
+pub fn router() -> axum::Router<Arc<Mutex<AppState>>> {
+    let router = Router::new()
+        .merge(requirement::router())
+        .merge(agenda::project_router())
+        .merge(task_link::project_router())
+        .merge(task_list::project_router())
+        .merge(draft::project_router())
+        .route("/", get(get_project_info).patch(patch_project))
+        .route("/prs", get(get_all_prs))
+        .route("/users", get(get_users_for_project));
+
+    Router::new()
+        .route("/", post(create_project))
+        .nest("/:project_id", router)
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct GetProjectsForUserResponse {
@@ -486,7 +503,6 @@ pub struct GetAllPullRequestsResponse {
     pub prs: Vec<PullRequest>,
 }
 
-
 pub async fn get_all_prs(
     auth_session: AuthSession<AuthBackend>,
     State(state): State<Arc<Mutex<AppState>>>,
@@ -499,13 +515,17 @@ pub async fn get_all_prs(
         return value;
     }
 
-    let prs = state.project_repo.query_prs_by_project_id(&project_id).await;
+    let prs = state
+        .project_repo
+        .query_prs_by_project_id(&project_id)
+        .await;
 
     match prs {
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         Ok(prs) => {
             let prs: Vec<_> = prs
-                .into_iter().map(|pr| PullRequest {
+                .into_iter()
+                .map(|pr| PullRequest {
                     owner: match pr.user {
                         None => "null".to_owned(),
                         Some(user) => user.login,
@@ -513,9 +533,9 @@ pub async fn get_all_prs(
                     repo: pr.base.repo.name,
                     pull_number: pr.number,
                     title: pr.title,
-                }).collect();
+                })
+                .collect();
             (StatusCode::OK, Json(GetAllPullRequestsResponse { prs })).into_response()
         }
     }
 }
-

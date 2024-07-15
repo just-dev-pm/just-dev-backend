@@ -26,6 +26,8 @@ use crate::{
     },
 };
 
+use super::handler::*;
+
 use super::handler::{
     agenda::{
         create_agenda_for_project, create_agenda_for_user, delete_agenda, get_agenda_info,
@@ -128,112 +130,17 @@ impl App {
         App {
             router: Router::new()
                 .route("/ws/drafts/:draft_id", get(draft_ws_handler))
-                .route(
-                    "/api/projects/:project_id/requirements/:requirement_id",
-                    get(get_requirement_info)
-                        .patch(patch_requirement)
-                        .delete(delete_requirement),
-                )
-                .route(
-                    "/api/projects/:project_id/requirements",
-                    get(get_requirements_for_project).post(create_requirement_for_project),
-                )
-                .route(
-                    "/api/users/:user_id/notifications/:notification_id",
-                    patch(handle_notification),
-                )
-                .route("/api/users/:user_id/notifications", get(get_notifications))
-                .route(
-                    "/api/agendas/:agenda_id/events/:event_id",
-                    patch(patch_event).delete(delete_event),
-                )
-                .route(
-                    "/api/agendas/:agenda_id/events",
-                    post(create_event_for_agenda).get(get_events_for_agenda),
-                )
-                .route(
-                    "/api/agendas/:agenda_id",
-                    get(get_agenda_info).delete(delete_agenda),
-                )
-                .route(
-                    "/api/projects/:project_id/agendas",
-                    get(get_agendas_for_project).post(create_agenda_for_project),
-                )
-                .route(
-                    "/api/users/:user_id/tasks",
-                    get(get_assigned_tasks_for_user),
-                )
-                .route(
-                    "/api/users/:user_id/agendas",
-                    get(get_agendas_for_user).post(create_agenda_for_user),
-                )
-                .route(
-                    "/api/links/:link_id",
-                    delete(delete_task_link).patch(patch_task_link),
-                )
-                .route(
-                    "/api/projects/:project_id/links",
-                    post(create_task_link_for_project).get(get_task_links_for_project),
-                )
-                .route(
-                    "/api/users/:user_id/links",
-                    post(create_task_link_for_user).get(get_task_links_for_user),
-                )
-                .route("/api/links/tasks/:task_id", get(get_links_for_task))
-                .route(
-                    "/api/task_lists/:task_list_id/tasks/:task_id",
-                    delete(delete_task_from_list).patch(patch_task),
-                )
-                .route(
-                    "/api/task_lists/:task_list_id/tasks",
-                    get(get_tasks_for_list).post(create_task_for_list),
-                )
-                .route(
-                    "/api/users/:user_id/task_lists",
-                    get(get_task_lists_for_user).post(create_task_list_for_user),
-                )
-                .route(
-                    "/api/projects/:project_id/task_lists",
-                    get(get_task_lists_for_project).post(create_task_list_for_project),
-                )
-                .route(
-                    "/api/task_lists/:task_list_id",
-                    get(get_task_list_info).delete(delete_task_list),
-                )
-                .route(
-                    "/api/projects/:project_id/drafts",
-                    get(get_drafts_for_project).post(create_draft_for_project),
-                )
-                .route(
-                    "/api/users/:user_id/drafts",
-                    get(get_drafts_for_user).post(create_draft_for_user),
-                )
-                .route(
-                    "/api/drafts/:draft_id",
-                    get(get_draft_info).patch(patch_draft_info),
-                )
+                .nest("/api/projects", project::router())
+                .nest("/api/users", user::router())
+                .nest("/api/task_lists", task_list::router())
+                .nest("/api/links", task_link::router())
+                .nest("/api/agendas", agenda::router())
+                .nest("/api/drafts", draft::router())
                 .route("/api/invitation/:token_id", get(get_token_info))
                 .route("/api/invitation/accept", post(accept_invitation))
                 .route("/api/invitation/generate", post(gen_invitation_token))
-                .route("/api/projects", post(create_project))
-                .route(
-                    "/api/projects/:project_id/users",
-                    get(get_users_for_project),
-                )
-                .route(
-                    "/api/projects/:project_id",
-                    get(get_project_info).patch(patch_project),
-                )
-                .route("/api/users/:user_id/projects", get(get_projects_for_user))
-                .route(
-                    "/api/users/:user_id",
-                    get(get_user_info).patch(patch_user_info),
-                )
-                .route("/api/projects/:project_id/prs", get(get_all_prs))
                 .route_layer(login_required!(AuthBackend, login_url = "/login"))
-                .route("/api/auth/login", post(login))
-                .route("/api/auth/signup", post(signup))
-                .route("/api/auth/logout", post(logout))
+                .nest("/api/auth", auth::router())
                 .route("/api/webhooks/github", post(handle_pull_request_event).layer(middleware::from_fn(filter_github_webhook_requests))) // TODO: add auth to webhook
                 .layer(auth_layer)
                 .layer(cors_layer)

@@ -13,7 +13,8 @@ use axum::{
     extract::{ws::WebSocket, Path, State, WebSocketUpgrade},
     http::StatusCode,
     response::IntoResponse,
-    Json,
+    routing::get,
+    Json, Router,
 };
 use axum_login::AuthSession;
 use serde::{Deserialize, Serialize};
@@ -21,11 +22,32 @@ use tokio::sync::Mutex;
 
 use crate::{
     api::{app::AppState, model::draft::Draft},
-    db::{model::draft::DraftPayload, repository::{draft::DraftRepository, utils::unwrap_thing}},
+    db::{
+        model::draft::DraftPayload,
+        repository::{draft::DraftRepository, utils::unwrap_thing},
+    },
     usecase::{draft_collaboration::DraftCollaborationManager, util::auth_backend::AuthBackend},
 };
 
 use super::util::{authorize_against_project_id, authorize_against_user_id, draft_db_to_api};
+
+pub fn project_router() -> Router<Arc<Mutex<AppState>>> {
+    Router::new().route(
+        "/drafts",
+        get(get_drafts_for_project).post(create_draft_for_project),
+    )
+}
+
+pub fn user_router() -> Router<Arc<Mutex<AppState>>> {
+    Router::new().route(
+        "/drafts",
+        get(get_drafts_for_user).post(create_draft_for_user),
+    )
+}
+
+pub fn router() -> Router<Arc<Mutex<AppState>>> {
+    Router::new().route("/:draft_id", get(get_draft_info).patch(patch_draft_info))
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetDraftInfoResponse {
@@ -158,7 +180,6 @@ pub async fn get_drafts_for_user(
         .map(|draft| Draft {
             id: unwrap_thing(draft.id.unwrap()),
             name: draft.name,
-        
         })
         .collect();
 

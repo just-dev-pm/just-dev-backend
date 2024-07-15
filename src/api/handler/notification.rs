@@ -4,7 +4,8 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    Json,
+    routing::{get, patch},
+    Json, Router,
 };
 use axum_login::AuthSession;
 use futures::future::try_join_all;
@@ -12,15 +13,21 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
 use crate::{
-    api::{
-        app::AppState,
-        model::notification::Notification,
-    },
+    api::{app::AppState, model::notification::Notification},
     db::repository::utils::unwrap_thing,
     usecase::util::auth_backend::AuthBackend,
 };
 
 use super::util::{authorize_against_user_id, notif_db_to_api};
+
+pub fn user_router() -> Router<Arc<Mutex<AppState>>> {
+    Router::new()
+        .route(
+            "/notifications/:notification_id",
+            patch(handle_notification),
+        )
+        .route("/notifications", get(get_notifications))
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetNotificationsResponse {

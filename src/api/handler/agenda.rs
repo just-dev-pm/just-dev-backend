@@ -1,10 +1,7 @@
 use std::{io, sync::Arc};
 
 use axum::{
-    extract::{Path, State},
-    http::StatusCode,
-    response::IntoResponse,
-    Json,
+    extract::{Path, State}, http::StatusCode, response::IntoResponse, routing::{get, patch, post}, Json, Router
 };
 use axum_login::AuthSession;
 use futures::future::try_join_all;
@@ -20,10 +17,40 @@ use crate::{
     usecase::util::auth_backend::AuthBackend,
 };
 
-use super::util::{
+use super::{event::{create_event_for_agenda, delete_event, get_events_for_agenda, patch_event}, util::{
         agenda_db_to_api, authorize_against_agenda_id, authorize_against_project_id,
         authorize_against_user_id,
-    };
+    }};
+
+pub fn user_router() -> Router<Arc<Mutex<AppState>>> {
+    Router::new().route(
+        "/agendas",
+        get(get_agendas_for_user).post(create_agenda_for_user),
+    )
+}
+
+pub fn project_router() -> Router<Arc<Mutex<AppState>>> {
+    Router::new().route(
+        "/agendas",
+        get(get_agendas_for_project).post(create_agenda_for_project),
+    )
+}
+
+pub fn router() -> Router<Arc<Mutex<AppState>>> {
+    let router = Router::new().route(
+        "/events/:event_id",
+        patch(patch_event).delete(delete_event),
+    )
+    .route(
+        "/events",
+        post(create_event_for_agenda).get(get_events_for_agenda),
+    )
+    .route(
+        "/:agenda_id",
+        get(get_agenda_info).delete(delete_agenda),
+    );
+    Router::new().nest("/:agenda_id", router)
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetAgendasForUserResponse {

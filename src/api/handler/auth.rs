@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, routing::post, Json, Router};
 use axum_login::AuthSession;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
@@ -15,6 +15,13 @@ use crate::{
 };
 
 use super::util::{credential_api_to_user_db, user_db_to_api};
+
+
+pub fn router() -> Router<Arc<Mutex<AppState>>> {
+    Router::new().route("/login", post(login))
+    .route("/signup", post(signup))
+    .route("/logout", post(logout))
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct LoginRequest {

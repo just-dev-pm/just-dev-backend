@@ -4,7 +4,8 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    Json,
+    routing::{delete, get},
+    Json, Router,
 };
 use axum_login::AuthSession;
 use futures::future::try_join_all;
@@ -16,10 +17,45 @@ use crate::{
     usecase::util::auth_backend::AuthBackend,
 };
 
-use super::util::{
-    authorize_against_project_id, authorize_against_task_list_id, authorize_against_user_id,
-    task_list_db_to_api,
+use super::{
+    task::{
+        create_task_for_list, delete_task_from_list, get_all_tasks_for_project, get_all_tasks_for_user, get_assigned_tasks_for_user, get_tasks_for_list, patch_task
+    },
+    util::{
+        authorize_against_project_id, authorize_against_task_list_id, authorize_against_user_id,
+        task_list_db_to_api,
+    },
 };
+
+pub fn user_router() -> Router<Arc<Mutex<AppState>>> {
+    Router::new()
+        .route(
+            "/task_lists",
+            get(get_task_lists_for_user).post(create_task_list_for_user),
+        )
+        .route("/tasks", get(get_assigned_tasks_for_user))
+        .route("/tasks/personal", get(get_all_tasks_for_user))
+}
+
+pub fn project_router() -> Router<Arc<Mutex<AppState>>> {
+    Router::new().route(
+        "/task_lists",
+        get(get_task_lists_for_project).post(create_task_list_for_project),
+    )
+    .route("/tasks", get(get_all_tasks_for_project))
+}
+
+pub fn router() -> Router<Arc<Mutex<AppState>>> {
+    let router = Router::new()
+        .route("/tasks", get(get_tasks_for_list).post(create_task_for_list))
+        .route(
+            "/tasks/:task_id",
+            delete(delete_task_from_list).patch(patch_task),
+        )
+        .route("/", get(get_task_list_info).delete(delete_task_list));
+
+    Router::new().nest("/:task_list_id", router)
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetTaskListInfoResponse {
@@ -33,8 +69,13 @@ pub async fn get_task_list_info(
     Path(task_list_id): Path<String>,
 ) -> impl IntoResponse {
     let state = state.lock().await;
-    if let Some(value) =
-        authorize_against_task_list_id(auth_session, &state.project_repo, &state.task_repo, &task_list_id).await
+    if let Some(value) = authorize_against_task_list_id(
+        auth_session,
+        &state.project_repo,
+        &state.task_repo,
+        &task_list_id,
+    )
+    .await
     {
         return value;
     }
@@ -277,14 +318,18 @@ pub async fn delete_task_list(
         return value;
     }
 
-    let tasks = match state.task_repo.query_all_tasks_of_task_list(&task_list_id).await {
+    let tasks = match state
+        .task_repo
+        .query_all_tasks_of_task_list(&task_list_id)
+        .await
+    {
         Ok(tasks) => tasks,
         Err(_) => return StatusCode::OK.into_response(),
     };
 
     let task_futures: Vec<_> = tasks
         .into_iter()
-        .map(|task_id| async move {state.task_repo.delete_task(&task_id).await})
+        .map(|task_id| async move { state.task_repo.delete_task(&task_id).await })
         .collect();
 
     let _ = try_join_all(task_futures).await;

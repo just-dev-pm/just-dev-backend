@@ -4,7 +4,8 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    Json,
+    routing::get,
+    Json, Router,
 };
 use axum_login::AuthSession;
 use futures::future::try_join_all;
@@ -17,6 +18,20 @@ use crate::{
 };
 
 use super::util::{authorize_against_project_id, requ_db_to_api};
+
+pub fn router() -> axum::Router<Arc<Mutex<AppState>>> {
+    Router::new()
+        .route(
+            "/requirements/:requirement_id",
+            get(get_requirement_info)
+                .patch(patch_requirement)
+                .delete(delete_requirement),
+        )
+        .route(
+            "/requirements",
+            get(get_requirements_for_project).post(create_requirement_for_project),
+        )
+}
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct GetRequirementsForProjectResponse {
@@ -118,17 +133,16 @@ pub async fn create_requirement_for_project(
         return value;
     }
 
-    let returned_requ = requ_repo.insert_requ_for_project(&project_id, req.name, req.content).await;
+    let returned_requ = requ_repo
+        .insert_requ_for_project(&project_id, req.name, req.content)
+        .await;
     let requ = match returned_requ {
         Ok(requ) => requ,
         Err(_) => {
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
     };
-    (
-        StatusCode::OK,
-        Json(requ_db_to_api(requ))
-    ).into_response()
+    (StatusCode::OK, Json(requ_db_to_api(requ))).into_response()
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -178,10 +192,7 @@ pub async fn patch_requirement(
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
     };
-    (
-        StatusCode::OK,
-        Json(requ_db_to_api(requ))
-    ).into_response()
+    (StatusCode::OK, Json(requ_db_to_api(requ))).into_response()
 }
 
 pub async fn delete_requirement(
@@ -203,8 +214,5 @@ pub async fn delete_requirement(
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
     };
-    (
-        StatusCode::OK,
-        Json(requ_db_to_api(requ))
-    ).into_response()
+    (StatusCode::OK, Json(requ_db_to_api(requ))).into_response()
 }

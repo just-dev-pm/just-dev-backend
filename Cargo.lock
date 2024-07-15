@@ -1666,6 +1666,7 @@ name = "just-dev-backend"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "axum-core",
  "axum-login",
  "axum-ycrdt-websocket",
  "base64-lib",

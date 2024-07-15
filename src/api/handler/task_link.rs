@@ -4,7 +4,8 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    Json,
+    routing::{delete, get, post},
+    Json, Router,
 };
 use axum_login::AuthSession;
 use serde::{Deserialize, Serialize};
@@ -27,6 +28,26 @@ use super::util::{
     authorize_against_task_link_id, authorize_against_user_id, task_link_db_to_api,
     task_relation_category_to_kind,
 };
+
+pub fn project_router() -> Router<Arc<Mutex<AppState>>> {
+    Router::new().route(
+        "/links",
+        post(create_task_link_for_project).get(get_task_links_for_project),
+    )
+}
+
+pub fn user_router() -> Router<Arc<Mutex<AppState>>> {
+    Router::new().route(
+        "/links",
+        post(create_task_link_for_user).get(get_task_links_for_user),
+    )
+}
+
+pub fn router() -> Router<Arc<Mutex<AppState>>> {
+    Router::new()
+        .route("/:link_id", delete(delete_task_link).patch(patch_task_link))
+        .route("/tasks/:task_id", get(get_links_for_task))
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetLinksForTaskResponse {
@@ -125,7 +146,7 @@ pub async fn create_task_link_for_user(
 
     if let Err(err) = refresh_task_status(&req.to.id, &state.task_repo).await {
         return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response();
-    } 
+    }
 
     (
         StatusCode::OK,
@@ -193,7 +214,7 @@ pub async fn create_task_link_for_project(
 
     if let Err(err) = refresh_task_status(&req.to.id, &state.task_repo).await {
         return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response();
-    } 
+    }
 
     (
         StatusCode::OK,
@@ -250,8 +271,7 @@ pub async fn delete_task_link(
     match state.task_repo.delete_task_link_by_id(&link_id).await {
         Ok(_link) => {
             if let Err(err) =
-                refresh_task_status(&unwrap_thing(_link.outgoing.unwrap()), &state.task_repo)
-                    .await
+                refresh_task_status(&unwrap_thing(_link.outgoing.unwrap()), &state.task_repo).await
             {
                 return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response();
             }

@@ -1,32 +1,136 @@
-use std::{borrow::Borrow, sync::Arc};
+use std::{borrow::Borrow, io, sync::Arc};
 
 use axum::{
-    extract::{Path, State},
-    http::StatusCode,
-    response::IntoResponse,
-    Json,
+    body::Body, extract::{Path, State}, http::{Response, StatusCode}, response::IntoResponse, routing::get, Json, Router
 };
-use axum_login::AuthSession;
+use axum_login::{AuthSession, UserId};
 use chrono::{DateTime, Utc};
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::Datetime;
 use tokio::sync::Mutex;
+// use axum_core::Response;
+
+
 
 use crate::{
     api::{
-        app::AppState,
+        app::{App, AppState},
         model::{pr::PullRequest, status::Status, task::Task, util::Id},
     },
     usecase::{
-        notification::{assign_task_to_user, deassign_task_for_user}, task_stream::{check_task_switch_complete, refresh_task_status_entry, TaskSwitchable}, util::auth_backend::AuthBackend
+        notification::{assign_task_to_user, deassign_task_for_user},
+        task_stream::{check_task_switch_complete, refresh_task_status_entry, TaskSwitchable},
+        util::auth_backend::AuthBackend,
     },
 };
 
 use super::util::{
-        authorize_against_task_list_id, authorize_against_user_id, task_db_to_api,
-        task_db_to_api_assigned,
-    };
+    authorize_against_project_id, authorize_against_task_list_id, authorize_against_user_id,
+    task_db_to_api, task_db_to_api_assigned,
+};
+
+
+pub struct IoErrorWrapper(io::Error);
+
+impl IntoResponse for IoErrorWrapper {
+    fn into_response(self) -> Response<Body> {
+        let status_code = match self.0.kind() {
+            io::ErrorKind::NotFound => StatusCode::NOT_FOUND,
+            io::ErrorKind::PermissionDenied => StatusCode::FORBIDDEN,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        };
+
+        (status_code, self.0.to_string()).into_response()
+    }
+}
+
+impl From<io::Error> for IoErrorWrapper {
+    fn from(err: io::Error) -> Self {
+        IoErrorWrapper(err)
+    }
+
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetTasksForUser {
+    pub tasks: Vec<Task>
+}
+
+pub async fn get_all_tasks_for_user(
+    auth_session: AuthSession<AuthBackend>,
+    State(state): State<Arc<Mutex<AppState>>>,
+    Path(user_id): Path<String>,
+) -> Result<impl IntoResponse, IoErrorWrapper> {
+    let ref state = state.lock().await;
+    if let Some(value) = authorize_against_user_id(auth_session, &user_id) {
+        return Ok(value);
+    }
+
+    let task_lists = state
+        .user_repo
+        .query_task_list_by_id(&user_id)
+        .await?;
+    let mut tasks = vec![];
+    for list in task_lists {
+        let list_tasks = state.task_repo.query_all_tasks_of_task_list(&list).await?;
+        for task in list_tasks {
+            tasks.push(state.task_repo.query_task_by_id(&task).await?);
+        }
+    }
+
+    let assigned_tasks = state
+        .task_repo
+        .query_assigned_tasks_by_user(&user_id)
+        .await?;
+
+
+    Ok((
+        StatusCode::OK,
+        Json(GetTasksForList {
+            tasks: tasks.into_iter().map(|task| task_db_to_api(task)).collect(),
+        }),
+    )
+        .into_response())
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetTasksForProject {
+    pub tasks: Vec<Task>,
+}
+
+pub async fn get_all_tasks_for_project(
+    auth_session: AuthSession<AuthBackend>,
+    State(state): State<Arc<Mutex<AppState>>>,
+    Path(project_id): Path<String>,
+) -> Result<impl IntoResponse, IoErrorWrapper> {
+    let ref state = state.lock().await;
+    if let Some(value) =
+        authorize_against_project_id(auth_session, &state.project_repo, &project_id).await
+    {
+        return Ok(value);
+    }
+
+    let task_lists = state
+        .project_repo
+        .query_task_list_by_id(&project_id)
+        .await?;
+    let mut tasks = vec![];
+    for list in task_lists {
+        let list_tasks = state.task_repo.query_all_tasks_of_task_list(&list).await?;
+        for task in list_tasks {
+            tasks.push(state.task_repo.query_task_by_id(&task).await?);
+        }
+    }
+
+    Ok((
+        StatusCode::OK,
+        Json(GetTasksForList {
+            tasks: tasks.into_iter().map(|task| task_db_to_api(task)).collect(),
+        }),
+    )
+        .into_response())
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetTasksForList {
@@ -141,7 +245,7 @@ pub async fn create_task_for_list(
             task.pr_number = _pr.pull_number.clone();
             task.pr = _pr;
             task.pr_assigned = true;
-        },
+        }
         None => {
             task.pr_assigned = false;
             task.pr = PullRequest::default();
@@ -249,22 +353,20 @@ pub async fn patch_task(
     if let Some(_) = req.status {
         switchable = match check_task_switch_complete(&task_id, &state.task_repo).await {
             Ok(_result) => _result,
-            Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response(),
+            Err(err) => {
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response()
+            }
         }
     }
 
     (new_task.complete, new_task.status) = match req.status {
-        Some(Status::Complete) => {
-            match switchable {
-                TaskSwitchable::False => (false, "incomplete".to_owned()),
-                _ => (true, "complete".to_owned()),
-            }     
+        Some(Status::Complete) => match switchable {
+            TaskSwitchable::False => (false, "incomplete".to_owned()),
+            _ => (true, "complete".to_owned()),
         },
-        Some(Status::Incomplete { id }) => {
-            match switchable {
-                TaskSwitchable::True => (true, id),
-                _ => (false, id),
-            }
+        Some(Status::Incomplete { id }) => match switchable {
+            TaskSwitchable::True => (true, id),
+            _ => (false, id),
         },
         None => (task.complete, task.status),
     };
@@ -315,7 +417,7 @@ pub async fn patch_task(
     if task.complete != new_task.complete {
         if let Err(err) = refresh_task_status_entry(&task_id, &state.task_repo).await {
             return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response();
-        } 
+        }
     }
 
     (
