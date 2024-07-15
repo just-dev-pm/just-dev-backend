@@ -10,6 +10,8 @@ pub mod utils;
 #[cfg(test)]
 mod test_user {
 
+    use std::sync::Once;
+
     use axum_login::AuthUser;
 
     use crate::db::model::notification::Notification;
@@ -30,6 +32,15 @@ mod test_user {
                 utils::unwrap_thing,
             },
         };
+
+    
+    static INIT: Once = Once::new();
+
+    fn initialize() {
+        INIT.call_once(|| {
+            dotenv::dotenv().ok();
+        });
+    }
 
     fn create_user() -> User {
         User {
@@ -107,6 +118,7 @@ mod test_user {
                 name: "test".to_string(),
                 avatar: None,
                 status_pool: StatusPool::new(),
+                github: 0,
             })
             .await
             .unwrap();
@@ -201,6 +213,7 @@ mod test_user {
             name: "xiwen".into(),
             avatar: None,
             status_pool: StatusPool::default(),
+            github: 0,
         };
         let result = repo.update_project(&project, "test").await.unwrap();
         assert_eq!(result.name, "xiwen");
@@ -466,6 +479,14 @@ mod test_user {
     async fn test_query_assigned_tasks_by_user() {
         let repo = TaskRepository::new().await;
         let result = repo.query_assigned_tasks_by_user("xiwen").await.unwrap();
+        assert!(result.len() > 0);
+    }
+
+    #[tokio::test]
+    async fn test_query_pr() {
+        initialize();
+        let repo = ProjectRepository::new().await;
+        let result = repo.query_prs_by_project_id("7uo495egurq23ex7v7d7").await.unwrap();
         assert!(result.len() > 0);
     }
 

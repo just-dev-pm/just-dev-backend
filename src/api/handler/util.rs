@@ -420,6 +420,7 @@ pub fn project_db_to_api(
         description: String::new(),
         avatar: project.avatar,
         status_pool: status_pool_db_to_api(project.status_pool),
+        github: Some(project.github),
     })
 }
 
@@ -441,12 +442,12 @@ pub fn project_api_to_db(
             None => StatusPool::default(),
             Some(status_pool) => status_pool_api_to_db(status_pool),
         },
+        github: 0,
     }
 }
 
 use crate::db::model::notification::NotificationSource;
 
-use super::task_list;
 
 pub fn notif_db_to_api(
     notif: crate::db::model::notification::Notification,

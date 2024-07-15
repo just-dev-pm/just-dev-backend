@@ -9,7 +9,10 @@ pub struct Project {
     pub id: Option<Thing>,
     pub name: String,
     pub avatar: Option<String>,
-    pub status_pool: StatusPool
+    pub status_pool: StatusPool,
+    pub github: i64,
 }
+
+
 
 

@@ -1,20 +1,37 @@
+use futures::io::BufReader;
+use futures::TryFutureExt;
+use octocrate::{APIConfig, AppAuthorization, GitHubAPI, PersonalAccessToken, PullRequestSimple};
 use surrealdb::sql::Thing;
 
+use crate::api::model::pr::PullRequest;
 use crate::db::db_context::DbContext;
 use crate::db::model::draft::DraftWithoutContent;
 use crate::db::model::project::Project;
 use crate::db::model::user::User;
+use std::fs::{self, File};
 use std::io;
+use std::sync::Arc;
 
 use crate::db::repository::utils::*;
 #[derive(Clone)]
 pub struct ProjectRepository {
+    github_api: Arc<GitHubAPI>,
     context: DbContext,
 }
 
 impl ProjectRepository {
     pub async fn new() -> ProjectRepository {
         ProjectRepository {
+            github_api: {
+                let app_id = std::env::var("JUST_DEV_GITHUB_APP_ID")
+                    .expect("JUST_DEV_GITHUB_APP_ID must be set");
+                let app_private_key = std::env::var("JUST_DEV_GITHUB_APP_PRIVATE_KEY")
+                    .expect("JUST_DEV_GITHUB_APP_PRIVATE_KEY must be set");
+                let app_private_key = fs::read_to_string(app_private_key).expect("Read private key file failed");
+                let config = 
+                    APIConfig::with_token(AppAuthorization::new(app_id, app_private_key)).shared();
+                Arc::new(GitHubAPI::new(&config))
+            },
             context: DbContext::new().await,
         }
     }
@@ -141,13 +158,18 @@ impl ProjectRepository {
         Ok(unwrap_things(task_lists.unwrap_or_default()))
     }
 
-    pub async fn query_draft_by_id(&self, project_id: &str) -> Result<Vec<DraftWithoutContent>, io::Error> {
+    pub async fn query_draft_by_id(
+        &self,
+        project_id: &str,
+    ) -> Result<Vec<DraftWithoutContent>, io::Error> {
         let mut response = exec_query(
             &self.context,
             format!("for $draft in (select ->own->draft as drafts from project where id == project:{project_id}).drafts {{return select id, name from $draft}}"),
         )
         .await?;
-        let agendas = response.take::<Vec<DraftWithoutContent>>(0).map_err(get_io_error)?;
+        let agendas = response
+            .take::<Vec<DraftWithoutContent>>(0)
+            .map_err(get_io_error)?;
 
         Ok(agendas)
     }
@@ -166,5 +188,37 @@ impl ProjectRepository {
             .map_err(get_io_error)?
             .unwrap_or_default();
         Ok(unwrap_things(notifs))
+    }
+
+    pub async fn query_prs_by_project_id(&self, project_id: &str) -> Result<Vec<PullRequestSimple>, io::Error> {
+        let project = self.query_project_by_id(project_id).await?;
+        let installation_token: octocrate::InstallationToken = self
+            .github_api
+            .apps
+            .create_installation_access_token(project.github)
+            .send()
+            .map_err(get_io_error)
+            .await?;
+
+        let api = GitHubAPI::new(
+            &APIConfig::with_token(PersonalAccessToken::new(installation_token.token)).shared(),
+        );
+        dbg!(&installation_token.repositories);
+        let repos = api
+            .apps
+            .list_repos_accessible_to_installation()
+            .send()
+            .await
+            .map_err(get_io_error)?
+            .repositories;
+
+        let mut prs = vec![];
+        for repo in repos {
+            let prs_in_repo = api.pulls.list(repo.owner.login, repo.name).send().await.map_err(get_io_error)?;
+            prs.extend(prs_in_repo);
+        }
+
+
+        Ok(prs)
     }
 }

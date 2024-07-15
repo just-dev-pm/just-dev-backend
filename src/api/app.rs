@@ -18,10 +18,10 @@ use tower_http::cors::CorsLayer;
 
 use crate::{
     db::repository::{
-            agenda::AgendaRepository, draft::DraftRepository, notification::NotificationRepository,
-            project::ProjectRepository, requirement::RequirementRepository, task::TaskRepository,
-            user::UserRepository,
-        },
+        agenda::AgendaRepository, draft::DraftRepository, notification::NotificationRepository,
+        project::ProjectRepository, requirement::RequirementRepository, task::TaskRepository,
+        user::UserRepository,
+    },
     usecase::{
         draft_collaboration::DraftCollaborationManager,
         invitation_token::InvitationTokenRepository, util::auth_backend::AuthBackend,
@@ -41,7 +41,7 @@ use super::handler::{
     event::{create_event_for_agenda, delete_event, get_events_for_agenda, patch_event},
     notification::{get_notifications, handle_notification},
     project::{
-        accept_invitation, create_project, gen_invitation_token, get_project_info,
+        accept_invitation, create_project, gen_invitation_token, get_all_prs, get_project_info,
         get_projects_for_user, get_token_info, get_users_for_project, patch_project,
     },
     requirement::{
@@ -231,6 +231,7 @@ impl App {
                     "/api/users/:user_id",
                     get(get_user_info).patch(patch_user_info),
                 )
+                .route("/api/projects/:project_id/prs", get(get_all_prs))
                 .route_layer(login_required!(AuthBackend, login_url = "/login"))
                 .route("/api/auth/login", post(login))
                 .route("/api/auth/signup", post(signup))

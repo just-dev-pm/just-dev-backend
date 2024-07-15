@@ -2,3 +2,4 @@
 .direnv
 /database
 .helix
+.env

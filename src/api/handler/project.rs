@@ -14,7 +14,7 @@ use tokio::sync::Mutex;
 use crate::{
     api::{
         app::AppState,
-        model::{project::Project, status::StatusPool, user::User},
+        model::{pr::PullRequest, project::Project, status::StatusPool, user::User},
     },
     usecase::{
         invitation_token::InvitationInfo,
@@ -230,6 +230,7 @@ pub async fn create_project(
         description: req.description,
         avatar: req.avatar,
         status_pool: req.status_pool,
+        github: None,
     });
     let state = state.lock().await;
 
@@ -313,6 +314,7 @@ pub async fn patch_project(
         description: req.description.unwrap_or(original_api_project.description),
         avatar: req.avatar.or(original_api_project.avatar),
         status_pool: req.status_pool.or(original_api_project.status_pool),
+        github: None,
     };
 
     let new_db_project = project_api_to_db(new_api_project);
@@ -478,3 +480,42 @@ pub async fn get_token_info(
     )
         .into_response()
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GetAllPullRequestsResponse {
+    pub prs: Vec<PullRequest>,
+}
+
+
+pub async fn get_all_prs(
+    auth_session: AuthSession<AuthBackend>,
+    State(state): State<Arc<Mutex<AppState>>>,
+    Path(project_id): Path<String>,
+) -> impl IntoResponse {
+    let state = state.lock().await;
+    if let Some(value) =
+        authorize_against_project_id(auth_session, &state.project_repo, &project_id).await
+    {
+        return value;
+    }
+
+    let prs = state.project_repo.query_prs_by_project_id(&project_id).await;
+
+    match prs {
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(prs) => {
+            let prs: Vec<_> = prs
+                .into_iter().map(|pr| PullRequest {
+                    owner: match pr.user {
+                        None => "null".to_owned(),
+                        Some(user) => user.login,
+                    },
+                    repo: pr.base.repo.name,
+                    pull_number: pr.number,
+                    title: pr.title,
+                }).collect();
+            (StatusCode::OK, Json(GetAllPullRequestsResponse { prs })).into_response()
+        }
+    }
+}
+
