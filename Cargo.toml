@@ -15,7 +15,7 @@ dotenv = "0.15.0"
 dotenv_codegen = "0.15.0"
 futures = "0.3.30"
 nanoid = "0.4.0"
-octocrate = { version = "1.0.0", features = ["repos", "pulls", "apps"] }
+octocrate = { version = "2.0.0", features = ["repos", "pulls", "apps"] }
 octocrate-webhooks = { version = "*", features = ["pull_request"] }
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.120"

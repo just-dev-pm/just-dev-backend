@@ -1,9 +1,7 @@
 use std::{env, sync::Arc};
 
 use axum::{
-    http::{header, HeaderValue, Method},
-    routing::{delete, get, patch, post},
-    Router,
+    http::{header, HeaderValue, Method}, middleware, routing::{delete, get, patch, post}, Router
 };
 use axum_login::{
     login_required,
@@ -60,7 +58,7 @@ use super::handler::{
         create_task_list_for_project, create_task_list_for_user, delete_task_list,
         get_task_list_info, get_task_lists_for_project, get_task_lists_for_user,
     },
-    user::{get_user_info, patch_user_info},
+    user::{get_user_info, patch_user_info}, webhook::{filter_github_webhook_requests, handle_pull_request_event},
 };
 
 #[derive(Clone)]
@@ -236,6 +234,7 @@ impl App {
                 .route("/api/auth/login", post(login))
                 .route("/api/auth/signup", post(signup))
                 .route("/api/auth/logout", post(logout))
+                .route("/api/webhooks/github", post(handle_pull_request_event).layer(middleware::from_fn(filter_github_webhook_requests))) // TODO: add auth to webhook
                 .layer(auth_layer)
                 .layer(cors_layer)
                 .with_state(state.clone()),

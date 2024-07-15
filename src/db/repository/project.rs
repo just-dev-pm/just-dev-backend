@@ -203,7 +203,6 @@ impl ProjectRepository {
         let api = GitHubAPI::new(
             &APIConfig::with_token(PersonalAccessToken::new(installation_token.token)).shared(),
         );
-        dbg!(&installation_token.repositories);
         let repos = api
             .apps
             .list_repos_accessible_to_installation()
@@ -217,7 +216,6 @@ impl ProjectRepository {
             let prs_in_repo = api.pulls.list(repo.owner.login, repo.name).send().await.map_err(get_io_error)?;
             prs.extend(prs_in_repo);
         }
-
 
         Ok(prs)
     }

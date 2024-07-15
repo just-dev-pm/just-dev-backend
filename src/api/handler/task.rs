@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{borrow::Borrow, sync::Arc};
 
 use axum::{
     extract::{Path, State},
@@ -16,7 +16,7 @@ use tokio::sync::Mutex;
 use crate::{
     api::{
         app::AppState,
-        model::{status::Status, task::Task, util::Id},
+        model::{pr::PullRequest, status::Status, task::Task, util::Id},
     },
     usecase::{
         notification::{assign_task_to_user, deassign_task_for_user}, task_stream::{check_task_switch_complete, refresh_task_status_entry, TaskSwitchable}, util::auth_backend::AuthBackend
@@ -90,6 +90,8 @@ pub struct CreateTaskForListRequest {
     pub assignees: Vec<Id>,
     pub status: Status,
     pub deadline: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pr: Option<PullRequest>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -116,7 +118,7 @@ pub async fn create_task_for_list(
         return value;
     }
 
-    let task = crate::db::model::task::Task {
+    let mut task = crate::db::model::task::Task {
         id: None,
         name: req.name.clone(),
         description: req.description.clone(),
@@ -129,7 +131,22 @@ pub async fn create_task_for_list(
             0: req.deadline.clone(),
         }),
         complete: false,
+        pr_assigned: false,
+        pr_number: 0,
+        pr: crate::api::model::pr::PullRequest::default(),
     };
+
+    match req.pr {
+        Some(_pr) => {
+            task.pr_number = _pr.pull_number.clone();
+            task.pr = _pr;
+            task.pr_assigned = true;
+        },
+        None => {
+            task.pr_assigned = false;
+            task.pr = PullRequest::default();
+        }
+    }
 
     let task = match state
         .task_repo
@@ -186,6 +203,8 @@ pub struct PatchTaskRequest {
     pub status: Option<Status>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deadline: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pr: Option<PullRequest>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -250,7 +269,10 @@ pub async fn patch_task(
         None => (task.complete, task.status),
     };
 
-    
+    if let Some(_pr) = req.pr {
+        new_task.pr_assigned = true;
+        new_task.pr = _pr;
+    }
 
     let assignees = match state.task_repo.query_assignees_of_task(&task_id).await {
         Ok(_assignees) => _assignees,

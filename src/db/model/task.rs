@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Datetime, Thing};
 
-use crate::db::repository::utils::DbModelId;
+use crate::{api::model::pr::PullRequest, db::repository::utils::DbModelId};
 
-use super::status::StatusPool;
 
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
@@ -18,6 +17,9 @@ pub struct Task {
     pub ddl: Option<Datetime>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub assignees: Option<Vec<DbModelId>>,
+    pub pr: PullRequest, 
+    pub pr_number: i64,
+    pub pr_assigned: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -50,6 +52,9 @@ impl Task {
             complete: false,
             ddl: None,
             assignees: None,
+            pr_number: 0,
+            pr_assigned: false,
+            pr: PullRequest::default(),
         }
     }
 }

@@ -490,4 +490,12 @@ mod test_user {
         assert!(result.len() > 0);
     }
 
+    #[tokio::test]
+    async fn test_query_task_by_pr_number() {
+        initialize();
+        let repo = TaskRepository::new().await;
+        let result = repo.query_task_by_pr_number(10).await.unwrap();
+        assert!(result.len() > 0);
+    }
+
 }
