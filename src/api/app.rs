@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{env, sync::Arc};
 
 use axum::{
     http::{header, HeaderValue, Method},
@@ -239,7 +239,7 @@ impl App {
                 .layer(cors_layer)
                 .with_state(state.clone()),
             config: AppConfig {
-                url: String::from("127.0.0.1:3000"),
+                url: env::var("JUST_DEV_SERVER_URL").expect("JUST_DEV_SERVER_URL must be set"),
             },
         }
     }

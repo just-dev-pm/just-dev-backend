@@ -1,3 +1,5 @@
+use std::env;
+
 use surrealdb::{
     engine::remote::ws::{Client, Ws},
     Surreal,
@@ -11,7 +13,11 @@ pub struct DbContext {
 impl DbContext {
     pub async fn new() -> Self {
         let db: Surreal<Client> = Surreal::init();
-        db.connect::<Ws>("localhost:8000").await.unwrap();
+        db.connect::<Ws>(
+            env::var("JUST_DEV_DATABASE_URL").expect("JUST_DEV_DATABASE_URL must be set"),
+        )
+        .await
+        .unwrap();
         db.use_ns("justdev").use_db("public").await.unwrap();
 
         DbContext { db }

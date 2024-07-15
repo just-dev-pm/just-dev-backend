@@ -3,10 +3,12 @@ use tracing::Level;
 mod api;
 mod db;
 mod usecase;
+use dotenv::dotenv;
 
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt().with_max_level(Level::WARN).init();
+    dotenv().ok();
 
     let app = App::new().await;
 
