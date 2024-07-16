@@ -1,7 +1,7 @@
 use std::{env, sync::Arc};
 
 use axum::{
-    http::{header, HeaderValue, Method}, middleware, routing::{delete, get, patch, post}, Router
+    http::{header, HeaderValue, Method}, middleware, routing::{get, post}, Router
 };
 use axum_login::{
     login_required,
@@ -29,38 +29,7 @@ use crate::{
 use super::handler::*;
 
 use super::handler::{
-    agenda::{
-        create_agenda_for_project, create_agenda_for_user, delete_agenda, get_agenda_info,
-        get_agendas_for_project, get_agendas_for_user,
-    },
-    auth::{login, logout, signup},
-    draft::{
-        create_draft_for_project, create_draft_for_user, draft_ws_handler, get_draft_info,
-        get_drafts_for_project, get_drafts_for_user, patch_draft_info,
-    },
-    event::{create_event_for_agenda, delete_event, get_events_for_agenda, patch_event},
-    notification::{get_notifications, handle_notification},
-    project::{
-        accept_invitation, create_project, gen_invitation_token, get_all_prs, get_project_info,
-        get_projects_for_user, get_token_info, get_users_for_project, patch_project,
-    },
-    requirement::{
-        create_requirement_for_project, delete_requirement, get_requirement_info,
-        get_requirements_for_project, patch_requirement,
-    },
-    task::{
-        create_task_for_list, delete_task_from_list, get_assigned_tasks_for_user,
-        get_tasks_for_list, patch_task,
-    },
-    task_link::{
-        create_task_link_for_project, create_task_link_for_user, delete_task_link,
-        get_links_for_task, get_task_links_for_project, get_task_links_for_user, patch_task_link,
-    },
-    task_list::{
-        create_task_list_for_project, create_task_list_for_user, delete_task_list,
-        get_task_list_info, get_task_lists_for_project, get_task_lists_for_user,
-    },
-    user::{get_user_info, patch_user_info}, webhook::{filter_github_webhook_requests, handle_pull_request_event},
+    draft::draft_ws_handler, webhook::{filter_github_webhook_requests, handle_pull_request_event},
 };
 
 #[derive(Clone)]
@@ -136,9 +105,7 @@ impl App {
                 .nest("/api/links", task_link::router())
                 .nest("/api/agendas", agenda::router())
                 .nest("/api/drafts", draft::router())
-                .route("/api/invitation/:token_id", get(get_token_info))
-                .route("/api/invitation/accept", post(accept_invitation))
-                .route("/api/invitation/generate", post(gen_invitation_token))
+                .nest("/api/invitation", project::invitation_router())
                 .route_layer(login_required!(AuthBackend, login_url = "/login"))
                 .nest("/api/auth", auth::router())
                 .route("/api/webhooks/github", post(handle_pull_request_event).layer(middleware::from_fn(filter_github_webhook_requests))) // TODO: add auth to webhook

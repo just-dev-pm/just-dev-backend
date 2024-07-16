@@ -4,7 +4,7 @@ use surrealdb::sql::Thing;
 
 use crate::db::{
     db_context::DbContext,
-    model::notification::{Notification, NotificationSource},
+    model::notification::{AssetPath, Notification, NotificationSource},
 };
 
 use super::utils::{create_resource, custom_io_error, exec_query, get_io_error, unwrap_thing};
@@ -21,37 +21,17 @@ impl NotificationRepository {
         }
     }
 
-    pub async fn query_notif_by_id(
+    pub async fn _query_notif_by_id(
         &self,
         id: &str,
-    ) -> Result<(Notification, NotificationSource), io::Error> {
+    ) -> Result<Notification, io::Error> {
         let notif: Option<Notification> = self
             .context
             .db
             .select(("notification", id))
             .await
             .map_err(get_io_error)?;
-        let mut response = exec_query(
-            &self.context,
-            format!(
-                "select ->about.out as source from notification where id == notification:{}",
-                id
-            ),
-        )
-        .await?;
-        let source = response
-            .take::<Option<Vec<Thing>>>((0, "source"))
-            .map_err(get_io_error)?
-            .unwrap_or_default()
-            .pop()
-            .ok_or(custom_io_error("Notification source find failed"))?;
-        let source = match source.tb.as_str() {
-            "task" => NotificationSource::Task(source.id.to_string()),
-            "event" => NotificationSource::Event(source.id.to_string()),
-            "draft" => NotificationSource::Draft(source.id.to_string()),
-            _ => NotificationSource::Task(source.id.to_string()),
-        };
-        Ok((notif.ok_or(custom_io_error("Notification find failed"))?, source))
+        Ok(notif.ok_or(custom_io_error("Notification find failed"))?)
     }
 
     pub async fn handle_notif_by_id(&self, id: &str) -> Result<Notification, io::Error> {

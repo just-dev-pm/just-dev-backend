@@ -324,7 +324,7 @@ pub async fn delete_task_list(
         .await
     {
         Ok(tasks) => tasks,
-        Err(_) => return StatusCode::OK.into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
 
     let task_futures: Vec<_> = tasks

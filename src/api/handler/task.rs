@@ -1,9 +1,9 @@
-use std::{borrow::Borrow, io, sync::Arc};
+use std::{io, sync::Arc};
 
 use axum::{
-    body::Body, extract::{Path, State}, http::{Response, StatusCode}, response::IntoResponse, routing::get, Json, Router
+    body::Body, extract::{Path, State}, http::{Response, StatusCode}, response::IntoResponse, Json
 };
-use axum_login::{AuthSession, UserId};
+use axum_login::AuthSession;
 use chrono::{DateTime, Utc};
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
@@ -15,7 +15,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     api::{
-        app::{App, AppState},
+        app::AppState,
         model::{pr::PullRequest, status::Status, task::Task, util::Id},
     },
     usecase::{
@@ -78,12 +78,6 @@ pub async fn get_all_tasks_for_user(
             tasks.push(state.task_repo.query_task_by_id(&task).await?);
         }
     }
-
-    let assigned_tasks = state
-        .task_repo
-        .query_assigned_tasks_by_user(&user_id)
-        .await?;
-
 
     Ok((
         StatusCode::OK,

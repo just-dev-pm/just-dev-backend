@@ -1,4 +1,4 @@
-use std::io;
+use std::{f64::consts::E, io};
 
 use surrealdb::sql::{Id, Thing};
 
@@ -39,6 +39,38 @@ impl AgendaRepository {
             .map_err(get_io_error)?
             .unwrap_or_default();
         Ok(events)
+    }
+
+    pub async fn query_agenda_by_event_id(&self, event_id: &str) -> Result<DbModelId, io::Error> {
+        let mut response = exec_query(
+            &self.context, 
+            format!("(SELECT <-plan<-agenda as event FROM agenda WHERE id == event:{}).event", event_id))
+            .await?;
+        let agenda = response
+            .take::<Vec<Thing>>(0)
+            .map_err(get_io_error)?
+            .pop()
+            .ok_or(custom_io_error("Agenda is not found"))?;
+        Ok(agenda.id.to_string())
+    }
+
+    pub async fn query_agenda_source_by_id(&self, agenda_id: &str) -> Result<DbModelId, io::Error> {
+        let mut response = exec_query(
+            &self.context, 
+            format!("(SELECT <-own<-project as source FROM agenda WHERE id == agenda:{}).source", agenda_id)
+        ).await?;
+        let source = response
+            .take::<Vec<Thing>>(0)
+            .map_err(get_io_error)?
+            .pop()
+            .ok_or(custom_io_error("Agenda source is not found"))?;
+        Ok(source.id.to_string())
+    }
+
+    pub async fn query_event_path_by_id(&self, event_id: &str) -> Result<(DbModelId, DbModelId), io::Error> {
+        let task_list = self.query_agenda_by_event_id(event_id).await?;
+        let source_id = self.query_agenda_source_by_id(&task_list).await?;
+        Ok((task_list, source_id))
     }
 
     pub async fn query_event_id_by_agenda_id(

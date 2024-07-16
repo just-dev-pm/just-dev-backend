@@ -1,12 +1,15 @@
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::Thing;
 
+use crate::db::repository::utils::DbModelId;
 
+
+pub struct AssetPath(pub String, pub(String, String));
 
 pub enum NotificationSource {
-    Task(String),
-    Event(String),
-    Draft(String),
+    Task(AssetPath),
+    Event(AssetPath),
+    Draft(AssetPath),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

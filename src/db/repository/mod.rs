@@ -15,6 +15,7 @@ mod test_user {
     use axum_login::AuthUser;
 
     use crate::db::model::notification::Notification;
+    use crate::usecase::notification::query_notif_by_id;
     use crate::usecase::user::insert_user;
     use crate::db::{
             model::{
@@ -356,8 +357,10 @@ mod test_user {
 
     #[tokio::test]
     async fn test_query_notif_by_id() {
-        let repo = NotificationRepository::new().await;
-        let (notif, _) = repo.query_notif_by_id("xiwen").await.unwrap();
+        let notif_repo = NotificationRepository::new().await;
+        let task_repo = TaskRepository::new().await;
+        let agenda_repo = AgendaRepository::new().await;
+        let (notif, _) = query_notif_by_id(&notif_repo, &task_repo, &agenda_repo, "xiwen").await.unwrap();
         assert_eq!(notif.title, "xiwen");
     }
 
@@ -497,5 +500,7 @@ mod test_user {
         let result = repo.query_task_by_pr_number(10).await.unwrap();
         assert!(result.len() > 0);
     }
+
+    
 
 }

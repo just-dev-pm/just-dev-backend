@@ -472,6 +472,12 @@ impl TaskRepository {
         Ok(try_join_all(futures).await?)
     }
 
+    pub async fn query_task_path_by_id(&self, task_id: &str) -> Result<(DbModelId, DbModelId), io::Error> {
+        let task_list = self.query_task_list_id_by_task(&task_id).await?;
+        let source = self.query_task_list_source(&task_list).await?;
+        Ok((task_list, source.id.to_string()))
+    }
+
     pub async fn delete_task(&self, task_id: &str) -> Result<Task, io::Error> {
         let task: Task = delete_resource(&self.context, task_id, "task").await?;
         Ok(task)

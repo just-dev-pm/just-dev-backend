@@ -4,19 +4,17 @@ use axum::{http::StatusCode, response::IntoResponse, Json};
 use axum_login::{AuthSession, AuthUser};
 use surrealdb::sql::Thing;
 
-use crate::db::{
+use crate::{api::model::asset::{DraftPath, EventPath, TaskPath}, db::{
     model::{
+        notification::AssetPath,
         status::{Status, StatusPool},
         task::Task,
     },
     repository::{
-        agenda::AgendaRepository,
-        project::ProjectRepository,
-        task::TaskRepository,
-        user::UserRepository,
-        utils::unwrap_thing,
+        agenda::AgendaRepository, project::ProjectRepository, task::TaskRepository,
+        user::UserRepository, utils::unwrap_thing,
     },
-};
+}};
 use crate::usecase::util::auth_backend::AuthBackend;
 use crate::{
     api::model::{
@@ -211,12 +209,14 @@ pub async fn authorize_against_task_link(
     from_id: &str,
     to_id: &str,
 ) -> Option<axum::http::Response<axum::body::Body>> {
-    if let Some(value) = authorize_against_task_id(auth_session, project_repo, task_repo, from_id).await
+    if let Some(value) =
+        authorize_against_task_id(auth_session, project_repo, task_repo, from_id).await
     {
         return Some(value);
     }
 
-    if let Some(value) = authorize_against_task_id(auth_session, project_repo, task_repo, to_id).await
+    if let Some(value) =
+        authorize_against_task_id(auth_session, project_repo, task_repo, to_id).await
     {
         return Some(value);
     }
@@ -459,9 +459,25 @@ pub fn notif_db_to_api(
         content: notif.content,
         handled: notif.handled,
         asset: match source {
-            NotificationSource::Task(id) => Asset::Task { id },
-            NotificationSource::Event(id) => Asset::Event { id },
-            NotificationSource::Draft(id) => Asset::Draft { id },
+            NotificationSource::Task(AssetPath(task_id, (task_list_id, project_id))) => {
+                Asset::Task {
+                    path: TaskPath {
+                        task_id,
+                        task_list_id,
+                        project_id,
+                    }
+                }
+            }
+            NotificationSource::Event(AssetPath(event_id, (agenda_id, project_id))) => {
+                Asset::Event {
+                    path: EventPath {
+                        event_id,
+                        agenda_id,
+                        project_id,
+                    }
+                }
+            }
+            NotificationSource::Draft(AssetPath(id, _)) => Asset::Draft { path: DraftPath { id } },
         },
     }
 }

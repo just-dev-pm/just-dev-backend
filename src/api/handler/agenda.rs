@@ -46,7 +46,7 @@ pub fn router() -> Router<Arc<Mutex<AppState>>> {
         post(create_event_for_agenda).get(get_events_for_agenda),
     )
     .route(
-        "/:agenda_id",
+        "/",
         get(get_agenda_info).delete(delete_agenda),
     );
     Router::new().nest("/:agenda_id", router)

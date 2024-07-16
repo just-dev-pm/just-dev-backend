@@ -22,10 +22,11 @@ use crate::{
 };
 
 use super::{
-    draft, task_link, task_list, util::{
+    draft, task_link, task_list,
+    util::{
         authorize_admin_against_project_id, authorize_against_project_id,
         authorize_against_user_id, project_api_to_db, project_db_to_api, user_db_to_api,
-    }
+    },
 };
 
 pub fn router() -> axum::Router<Arc<Mutex<AppState>>> {
@@ -42,6 +43,13 @@ pub fn router() -> axum::Router<Arc<Mutex<AppState>>> {
     Router::new()
         .route("/", post(create_project))
         .nest("/:project_id", router)
+}
+
+pub fn invitation_router() -> axum::Router<Arc<Mutex<AppState>>> {
+    Router::new()
+        .route("/:token_id", get(get_token_info))
+        .route("/accept", post(accept_invitation))
+        .route("/generate", post(gen_invitation_token))
 }
 
 #[derive(Serialize, Deserialize)]
