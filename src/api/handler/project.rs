@@ -22,11 +22,10 @@ use crate::{
 };
 
 use super::{
-    draft, task_link, task_list,
-    util::{
+    draft, task::IoErrorWrapper, task_link, task_list, util::{
         authorize_admin_against_project_id, authorize_against_project_id,
         authorize_against_user_id, project_api_to_db, project_db_to_api, user_db_to_api,
-    },
+    }
 };
 
 pub fn router() -> axum::Router<Arc<Mutex<AppState>>> {
@@ -515,35 +514,31 @@ pub async fn get_all_prs(
     auth_session: AuthSession<AuthBackend>,
     State(state): State<Arc<Mutex<AppState>>>,
     Path(project_id): Path<String>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, IoErrorWrapper> {
     let state = state.lock().await;
     if let Some(value) =
         authorize_against_project_id(auth_session, &state.project_repo, &project_id).await
     {
-        return value;
+        return Ok(value);
     }
 
     let prs = state
         .project_repo
         .query_prs_by_project_id(&project_id)
-        .await;
+        .await?;
+    let prs :Vec<_> =  prs
+        .into_iter()
+        .map(|pr| PullRequest {
+            owner: match pr.user {
+                None => "null".to_owned(),
+                Some(user) => user.login,
+            },
+            repo: pr.base.repo.name,
+            pull_number: pr.number,
+            title: pr.title,
+        })
+        .collect();
 
-    match prs {
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        Ok(prs) => {
-            let prs: Vec<_> = prs
-                .into_iter()
-                .map(|pr| PullRequest {
-                    owner: match pr.user {
-                        None => "null".to_owned(),
-                        Some(user) => user.login,
-                    },
-                    repo: pr.base.repo.name,
-                    pull_number: pr.number,
-                    title: pr.title,
-                })
-                .collect();
-            (StatusCode::OK, Json(GetAllPullRequestsResponse { prs })).into_response()
-        }
-    }
+        
+        Ok((StatusCode::OK, Json(GetAllPullRequestsResponse { prs })).into_response())
 }

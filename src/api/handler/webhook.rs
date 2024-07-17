@@ -12,6 +12,8 @@ use tokio::sync::Mutex;
 
 use crate::{api::app::AppState, db::repository::utils::unwrap_thing};
 
+use super::task::IoErrorWrapper;
+
 pub async fn filter_github_webhook_requests(
     header: HeaderMap,
     req: Request,
@@ -30,37 +32,29 @@ pub async fn filter_github_webhook_requests(
 pub async fn handle_pull_request_event(
     State(state): State<Arc<Mutex<AppState>>>,
     Json(value): Json<serde_json::Value>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, IoErrorWrapper> {
     if let Ok(req) = serde_json::from_value::<WebhookPullRequestClosed>(value) {
         if let WebhookPullRequestClosedPullRequest::PullRequest(_pr) = req.pull_request {
             if !_pr.merged {
-                return StatusCode::OK.into_response();
+                return Ok(StatusCode::OK.into_response());
             }
         } else {
-            return StatusCode::OK.into_response();
+            return Ok(StatusCode::OK.into_response());
         };
         dbg!(&req.action);
         let state = state.lock().await;
-        let tasks = match state.task_repo.query_task_by_pr_number(req.number).await {
-            Ok(tasks) => tasks,
-            Err(err) => {
-                return (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response()
-            }
-        };
+        let tasks = state.task_repo.query_task_by_pr_number(req.number).await?;
 
         for mut task in tasks {
             task.complete = true;
-            if let Err(err) = state
+            let _ = state
                 .task_repo
                 .update_task_by_id(&unwrap_thing(task.id.clone().unwrap()), &task)
-                .await
-            {
-                return (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response();
-            }
+                .await?;
         }
 
-        StatusCode::OK.into_response()
+        Ok(StatusCode::OK.into_response())
     } else {
-        StatusCode::BAD_REQUEST.into_response()
+        Ok(StatusCode::BAD_REQUEST.into_response())
     }
 }

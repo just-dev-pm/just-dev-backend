@@ -148,7 +148,7 @@ impl ProjectRepository {
         let mut response = exec_query(
             &self.context,
             format!(
-                "select ->own->task_list as task_lists from user where id == project:{project_id}"
+                "select ->own->task_list as task_lists from project where id == project:{project_id}"
             ),
         )
         .await?;

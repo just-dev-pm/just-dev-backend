@@ -592,6 +592,10 @@ pub fn task_db_to_api(task: Task) -> crate::api::model::task::Task {
             false => crate::api::model::status::Status::Incomplete { id: task.status },
         },
         deadline: task.ddl.unwrap_or_default().0,
+        pr: match task.pr_assigned {
+            true => Some(task.pr),
+            false => None
+        },
     }
 }
 

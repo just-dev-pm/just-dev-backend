@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::{status::Status, util::Id};
+use super::{pr::PullRequest, status::Status, util::Id};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Task {
@@ -11,6 +11,8 @@ pub struct Task {
     pub assignees: Vec<Id>,
     pub status: Status,
     pub deadline: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pr: Option<PullRequest>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

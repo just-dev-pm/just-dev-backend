@@ -79,7 +79,7 @@ impl App {
 
         let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
         let cors_layer = CorsLayer::new()
-            .allow_origin(["http://localhost:4000".parse::<HeaderValue>().unwrap()])
+            .allow_origin(["http://10.128.130.15:4000".parse::<HeaderValue>().unwrap(), "http://localhost:4000".parse::<HeaderValue>().unwrap()])
             .allow_methods(vec![
                 Method::GET,
                 Method::POST,

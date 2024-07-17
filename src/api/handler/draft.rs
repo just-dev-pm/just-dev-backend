@@ -60,7 +60,7 @@ pub async fn get_draft_info(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(draft_id): Path<String>,
 ) -> impl IntoResponse {
-    // TODO authorize draft against user
+    // TODO: authorize draft against user
     let state = state.lock().await;
     let db_draft = state.draft_repo.query_draft_by_id(&draft_id).await;
 
