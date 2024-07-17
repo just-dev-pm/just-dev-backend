@@ -76,10 +76,10 @@ impl App {
             .with_expiry(Expiry::OnInactivity(Duration::days(1)));
 
         let backend = AuthBackend::new(Arc::new(UserRepository::new().await));
-
+        let wlan_url = env::var("JUST_DEV_FRONT_END_ORIGIN").expect("JUST_DEV_FRONT_END_ORIGIN must be set");
         let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
         let cors_layer = CorsLayer::new()
-            .allow_origin(["http://10.128.130.15:4000".parse::<HeaderValue>().unwrap(), "http://localhost:4000".parse::<HeaderValue>().unwrap()])
+            .allow_origin([wlan_url.parse::<HeaderValue>().unwrap(), "http://localhost:4000".parse::<HeaderValue>().unwrap()])
             .allow_methods(vec![
                 Method::GET,
                 Method::POST,

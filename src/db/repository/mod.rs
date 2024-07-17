@@ -98,6 +98,7 @@ mod test_user {
 
     #[tokio::test]
     async fn test_query_admin_by_id() {
+        initialize();
         let repository = ProjectRepository::new().await;
         let admin = repository.query_admin_by_id("xiwen").await.unwrap();
         assert_eq!(admin.id(), "xiwen");
@@ -105,9 +106,10 @@ mod test_user {
 
     #[tokio::test]
     async fn test_query_members_by_id() {
+        initialize();
         let repository = ProjectRepository::new().await;
-        let members = repository.query_members_by_id("xiwen").await.unwrap();
-        assert_eq!(members[0].id(), "dc");
+        let members = repository.query_members_by_id("uwhb64khoi7yyuuftsdb").await.unwrap();
+        assert_eq!(members[0].id(), "5b743laywiirrghk3r31");
     }
 
     #[tokio::test]

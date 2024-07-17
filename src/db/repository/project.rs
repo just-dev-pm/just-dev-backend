@@ -27,8 +27,9 @@ impl ProjectRepository {
                     .expect("JUST_DEV_GITHUB_APP_ID must be set");
                 let app_private_key = std::env::var("JUST_DEV_GITHUB_APP_PRIVATE_KEY")
                     .expect("JUST_DEV_GITHUB_APP_PRIVATE_KEY must be set");
-                let app_private_key = fs::read_to_string(app_private_key).expect("Read private key file failed");
-                let config = 
+                let app_private_key =
+                    fs::read_to_string(app_private_key).expect("Read private key file failed");
+                let config =
                     APIConfig::with_token(AppAuthorization::new(app_id, app_private_key)).shared();
                 Arc::new(GitHubAPI::new(&config))
             },
@@ -119,21 +120,25 @@ impl ProjectRepository {
             .context
             .db
             .query(format!(
-                "SELECT <-user.* as users from join where out.id == project:{id} AND admin == false"
+                "(SELECT <-user.* as users from join where out.id == project:{id} AND admin == false).users"
             ))
             .await
             .unwrap();
         let members = response
-            .take::<Option<Vec<User>>>("users")
+            .take::<Vec<Vec<User>>>(0)
             .map_err(get_io_error)?
-            .unwrap_or_default(); //TODO: add error handling
+            .into_iter()
+            .filter_map(|mut user| user.pop())
+            .collect::<Vec<_>>(); //TODO: add error handling
         Ok(members)
     }
 
     pub async fn query_agenda_by_id(&self, project_id: &str) -> Result<Vec<DbModelId>, io::Error> {
         let mut response = exec_query(
             &self.context,
-            format!("select ->own->agenda as agendas from project where id == project:{project_id}"),
+            format!(
+                "select ->own->agenda as agendas from project where id == project:{project_id}"
+            ),
         )
         .await?;
         let agendas: Option<Vec<Thing>> = response.take((0, "agendas")).map_err(get_io_error)?;
@@ -190,8 +195,14 @@ impl ProjectRepository {
         Ok(unwrap_things(notifs))
     }
 
-    pub async fn query_prs_by_project_id(&self, project_id: &str) -> Result<Vec<PullRequestSimple>, io::Error> {
+    pub async fn query_prs_by_project_id(
+        &self,
+        project_id: &str,
+    ) -> Result<Vec<PullRequestSimple>, io::Error> {
         let project = self.query_project_by_id(project_id).await?;
+        if project.github == 0 {
+            return Ok(vec![])
+        }
         let installation_token: octocrate::InstallationToken = self
             .github_api
             .apps
@@ -213,7 +224,12 @@ impl ProjectRepository {
 
         let mut prs = vec![];
         for repo in repos {
-            let prs_in_repo = api.pulls.list(repo.owner.login, repo.name).send().await.map_err(get_io_error)?;
+            let prs_in_repo = api
+                .pulls
+                .list(repo.owner.login, repo.name)
+                .send()
+                .await
+                .map_err(get_io_error)?;
             prs.extend(prs_in_repo);
         }
 

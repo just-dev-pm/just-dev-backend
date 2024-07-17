@@ -500,7 +500,7 @@ impl TaskRepository {
     }
 
     pub async fn query_task_link_by_id(&self, task_link_id: &str) -> Result<TaskLink, io::Error> {
-        select_resourse(&self.context, task_link_id, "task_link").await
+        select_resourse(&self.context, task_link_id, "link").await
     }
 
     pub async fn update_task_link(
@@ -508,7 +508,7 @@ impl TaskRepository {
         task_link_id: &str,
         task_link: &TaskLink,
     ) -> Result<TaskLink, io::Error> {
-        update_resource(&self.context, task_link_id, task_link, "task_link").await
+        update_resource(&self.context, task_link_id, task_link, "link").await
     }
 
     pub async fn query_task_by_pr_number(&self, number: i64) -> Result<Vec<Task>, io::Error> {
