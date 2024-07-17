@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
-use crate::db::repository::utils::get_str_id;
-use crate::usecase::notification::deassign_event_for_user;
-use crate::usecase::notification::assign_event_for_user;
 use crate::db::model::agenda::Event as DbEvent;
+use crate::db::repository::utils::get_str_id;
+use crate::db::repository::utils::unwrap_thing;
+use crate::usecase::notification::assign_event_for_user;
+use crate::usecase::notification::deassign_event_for_user;
 
 use axum::{
     extract::{Path, State},
@@ -24,8 +25,8 @@ use crate::{
     usecase::util::auth_backend::AuthBackend,
 };
 
+use super::task::IoErrorWrapper;
 use super::util::{authorize_against_agenda_id, authorize_against_event_id, event_db_to_api};
-
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CreateEventForAgendaRequest {
@@ -47,26 +48,35 @@ pub async fn create_event_for_agenda(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(agenda_id): Path<String>,
     Json(req): Json<CreateEventForAgendaRequest>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, IoErrorWrapper> {
     let ref state = state.lock().await;
     let ref agenda_repo = state.agenda_repo;
     let ref user_repo = state.user_repo;
     if let Some(value) = authorize_against_agenda_id(&auth_session, user_repo, &agenda_id).await {
-        return value;
+        return Ok(value);
     }
-    match agenda_repo
+    let participants = req.participants.clone();
+    let event = agenda_repo
         .insert_event_for_agenda(&DbEvent::from_create_request(req), &agenda_id)
-        .await
-    {
-        Ok(event) => (
-            StatusCode::OK,
-            Json(CreateEventForAgendaResponse {
-                event: event_db_to_api(event, vec![]),
-            }),
+        .await?;
+
+    for Id { id } in &participants {
+        let _ = assign_event_for_user(
+            agenda_repo,
+            &state.notif_repo,
+            &unwrap_thing(event.id.clone().unwrap()),
+            id,
         )
-            .into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        .await?;
     }
+
+    Ok((
+        StatusCode::OK,
+        Json(CreateEventForAgendaResponse {
+            event: event_db_to_api(event, participants),
+        }),
+    )
+        .into_response())
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -165,21 +175,29 @@ pub async fn patch_event(
         let assignees: Vec<_> = assignees.into_iter().map(|a| a.id).collect();
         for assignee in &assignees {
             if !assignees_ref.contains(assignee) {
-                match assign_event_for_user(&agenda_repo, &state.notif_repo, &event_id, &assignee).await {
+                match assign_event_for_user(&agenda_repo, &state.notif_repo, &event_id, &assignee)
+                    .await
+                {
                     Ok(_) => {}
-                    Err(msg) => return (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response(),
+                    Err(msg) => {
+                        return (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response()
+                    }
                 }
             }
         }
         for assignee in assignees_ref {
             if !assignees.contains(&assignee) {
-                match deassign_event_for_user(&agenda_repo, &state.notif_repo, &event_id, &assignee).await {
+                match deassign_event_for_user(&agenda_repo, &state.notif_repo, &event_id, &assignee)
+                    .await
+                {
                     Ok(_) => {}
-                    Err(msg) => return (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response(),
+                    Err(msg) => {
+                        return (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response()
+                    }
                 }
             }
         }
-    }  
+    }
     (
         StatusCode::OK,
         Json(PatchEventResponse {
@@ -187,7 +205,6 @@ pub async fn patch_event(
         }),
     )
         .into_response()
-    
 }
 
 pub async fn delete_event(

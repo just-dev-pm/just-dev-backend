@@ -17,12 +17,11 @@ use crate::{
     api::{
         app::AppState,
         model::{pr::PullRequest, status::Status, task::Task, util::Id},
-    },
-    usecase::{
+    }, db::repository::utils::unwrap_thing, usecase::{
         notification::{assign_task_to_user, deassign_task_for_user},
         task_stream::{check_task_switch_complete, refresh_task_status_entry, TaskSwitchable},
         util::auth_backend::AuthBackend,
-    },
+    }
 };
 
 use super::util::{
@@ -203,7 +202,7 @@ pub async fn create_task_for_list(
     State(state): State<Arc<Mutex<AppState>>>,
     Path(task_list_id): Path<String>,
     Json(req): Json<CreateTaskForListRequest>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, IoErrorWrapper> {
     let ref state = state.lock().await;
     if let Some(value) = authorize_against_task_list_id(
         auth_session,
@@ -213,14 +212,16 @@ pub async fn create_task_for_list(
     )
     .await
     {
-        return value;
+        return Ok(value);
     }
+
+    let assignees: Vec<_> = req.assignees.clone().into_iter().map(|id| id.id).collect();
 
     let mut task = crate::db::model::task::Task {
         id: None,
         name: req.name.clone(),
         description: req.description.clone(),
-        assignees: Some(req.assignees.into_iter().map(|id| id.id).collect()),
+        assignees: Some(assignees.clone()),
         status: match req.status {
             Status::Complete => "complete".to_owned(),
             Status::Incomplete { id } => id,
@@ -246,24 +247,25 @@ pub async fn create_task_for_list(
         }
     }
 
-    let task = match state
+    let mut task = state
         .task_repo
         .insert_task_for_task_list(&task, &task_list_id)
-        .await
-    {
-        Ok(_task) => _task,
-        Err(err) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response()
-        }
-    };
+        .await?;
 
-    (
+    let task_id = unwrap_thing(task.id.clone().unwrap());
+    for id in &assignees {
+        let _ = assign_task_to_user(&state.task_repo, &state.notif_repo, &task_id, &id).await?;
+    }
+
+    task.assignees = Some(assignees);
+
+    Ok((
         StatusCode::OK,
         Json(CreateTaskForListResponse {
             task: task_db_to_api(task),
         }),
     )
-        .into_response()
+        .into_response())
 }
 
 pub async fn delete_task_from_list(
