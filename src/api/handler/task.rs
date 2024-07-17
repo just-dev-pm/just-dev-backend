@@ -98,6 +98,7 @@ pub async fn get_all_tasks_for_project(
     Path(project_id): Path<String>,
 ) -> Result<impl IntoResponse, IoErrorWrapper> {
     let ref state = state.lock().await;
+    let ref task_repo = state.task_repo;
     if let Some(value) =
         authorize_against_project_id(auth_session, &state.project_repo, &project_id).await
     {
@@ -110,9 +111,9 @@ pub async fn get_all_tasks_for_project(
         .await?;
     let mut tasks = vec![];
     for list in task_lists {
-        let list_tasks = state.task_repo.query_all_tasks_of_task_list(&list).await?;
+        let list_tasks = task_repo.query_all_tasks_of_task_list(&list).await?;
         for task in list_tasks {
-            tasks.push(state.task_repo.query_task_by_id(&task).await?);
+            tasks.push(task_repo.query_task_by_id(&task).await?);
         }
     }
 
