@@ -554,7 +554,7 @@ pub fn task_list_db_to_api(
 }
 
 pub fn task_db_to_api_assigned(
-    (task, project, task_list): (Task, String, String),
+    (task, task_list, project): (Task, String, String),
 ) -> crate::api::handler::task::AssignedTask {
     crate::api::handler::task::AssignedTask {
         id: unwrap_thing(task.id.unwrap()),

@@ -444,7 +444,7 @@ impl TaskRepository {
         &self,
         user_id: &str,
     ) -> Result<Vec<(Task, DbModelId, DbModelId)>, io::Error> {
-        // task_id  task_list_id  source_id
+        // task  task_list_id  source_id
         let mut response = exec_query(
             &self.context,
             format!(

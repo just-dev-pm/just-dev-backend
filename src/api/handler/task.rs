@@ -75,7 +75,7 @@ pub async fn get_all_tasks_for_user(
         return Ok(value);
     }
 
-    let task_lists = state.user_repo.query_task_list_by_id(&user_id).await?;
+    let task_lists = state.user_repo.query_task_list_by_id_without_from_project(&user_id).await?;
     let mut tasks = vec![];
     for list in task_lists {
         let list_tasks = state.task_repo.query_all_tasks_of_task_list(&list).await?;
@@ -322,7 +322,7 @@ pub async fn patch_task(
     State(state): State<Arc<Mutex<AppState>>>,
     Path((task_list_id, task_id)): Path<(String, String)>,
     Json(req): Json<PatchTaskRequest>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, IoErrorWrapper> {
     let state = state.lock().await;
     if let Some(value) = authorize_against_task_list_id(
         auth_session,
@@ -332,13 +332,10 @@ pub async fn patch_task(
     )
     .await
     {
-        return value;
+        return Ok(value);
     };
 
-    let task = match state.task_repo.query_task_by_id(&task_id).await {
-        Ok(_task) => _task,
-        Err(err) => return (StatusCode::BAD_REQUEST, Json(err.to_string())).into_response(),
-    };
+    let task = state.task_repo.query_task_by_id(&task_id).await?;
 
     let mut new_task = crate::db::model::task::Task {
         name: req.name.unwrap_or(task.name.clone()),
@@ -352,12 +349,7 @@ pub async fn patch_task(
     let mut switchable = TaskSwitchable::TrueAndFalse;
 
     if let Some(_) = req.status {
-        switchable = match check_task_switch_complete(&task_id, &state.task_repo).await {
-            Ok(_result) => _result,
-            Err(err) => {
-                return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response()
-            }
-        }
+        switchable = check_task_switch_complete(&task_id, &state.task_repo).await?;
     }
 
     (new_task.complete, new_task.status) = match req.status {
@@ -377,57 +369,36 @@ pub async fn patch_task(
         new_task.pr = _pr;
     }
 
-    let assignees = match state.task_repo.query_assignees_of_task(&task_id).await {
-        Ok(_assignees) => _assignees,
-        Err(err) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response()
-        }
-    };
+    let assignees = state.task_repo.query_assignees_of_task(&task_id).await?;
 
     if let Some(assignees_ref) = req.assignees {
         let assignees_ref: Vec<_> = assignees_ref.into_iter().map(|a| a.id).collect();
         for assignee in &assignees {
             if !assignees_ref.contains(assignee) {
-                if let Err(err) =
-                    deassign_task_for_user(&state.task_repo, &state.notif_repo, &task_id, &assignee)
-                        .await
-                {
-                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string()))
-                        .into_response();
-                }
+                let _ = deassign_task_for_user(&state.task_repo, &state.notif_repo, &task_id, &assignee).await?;
             }
         }
         for assignee in &assignees_ref {
             if !assignees.contains(&assignee) {
-                if let Err(err) =
-                    assign_task_to_user(&state.task_repo, &state.notif_repo, &task_id, &assignee)
-                        .await
-                {
-                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string()))
-                        .into_response();
-                }
+                let _ = assign_task_to_user(&state.task_repo, &state.notif_repo, &task_id, &assignee).await?;
             }
         }
         new_task.assignees = Some(assignees_ref);
     }
 
-    if let Err(err) = state.task_repo.update_task_by_id(&task_id, &new_task).await {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response();
-    }
+    let new_task =  state.task_repo.update_task_by_id(&task_id, &new_task).await?;
 
     if task.complete != new_task.complete {
-        if let Err(err) = refresh_task_status_entry(&task_id, &state.task_repo).await {
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())).into_response();
-        }
+        let _ = refresh_task_status_entry(&task_id, &state.task_repo).await?;
     }
 
-    (
+    Ok((
         StatusCode::OK,
         Json(PatchTaskResponse {
             task: task_db_to_api(new_task),
         }),
     )
-        .into_response()
+        .into_response())
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
