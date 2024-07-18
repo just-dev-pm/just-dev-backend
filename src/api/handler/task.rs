@@ -345,6 +345,7 @@ pub async fn patch_task(
         description: req.description.unwrap_or(task.description.clone()),
         ddl: req.deadline.map(|ddl| Datetime { 0: ddl }),
         complete: task.complete,
+        id: None,
         ..task.clone()
     };
 
