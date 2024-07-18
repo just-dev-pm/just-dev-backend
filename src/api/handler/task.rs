@@ -1,7 +1,11 @@
 use std::{io, sync::Arc};
 
 use axum::{
-    body::Body, extract::{Path, State}, http::{Response, StatusCode}, response::IntoResponse, Json
+    body::Body,
+    extract::{Path, State},
+    http::{Response, StatusCode},
+    response::IntoResponse,
+    Json,
 };
 use axum_login::AuthSession;
 use chrono::{DateTime, Utc};
@@ -11,24 +15,23 @@ use surrealdb::sql::Datetime;
 use tokio::sync::Mutex;
 // use axum_core::Response;
 
-
-
 use crate::{
     api::{
         app::AppState,
         model::{pr::PullRequest, status::Status, task::Task, util::Id},
-    }, db::repository::utils::unwrap_thing, usecase::{
+    },
+    db::repository::utils::unwrap_thing,
+    usecase::{
         notification::{assign_task_to_user, deassign_task_for_user},
         task_stream::{check_task_switch_complete, refresh_task_status_entry, TaskSwitchable},
         util::auth_backend::AuthBackend,
-    }
+    },
 };
 
 use super::util::{
     authorize_against_project_id, authorize_against_task_list_id, authorize_against_user_id,
     task_db_to_api, task_db_to_api_assigned,
 };
-
 
 pub struct IoErrorWrapper(io::Error);
 
@@ -48,12 +51,18 @@ impl From<io::Error> for IoErrorWrapper {
     fn from(err: io::Error) -> Self {
         IoErrorWrapper(err)
     }
+}
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TaskWithListId {
+    #[serde(flatten)]
+    pub task: Task,
+    pub task_list_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetTasksForUser {
-    pub tasks: Vec<Task>
+    pub tasks: Vec<TaskWithListId>,
 }
 
 pub async fn get_all_tasks_for_user(
@@ -66,30 +75,24 @@ pub async fn get_all_tasks_for_user(
         return Ok(value);
     }
 
-    let task_lists = state
-        .user_repo
-        .query_task_list_by_id(&user_id)
-        .await?;
+    let task_lists = state.user_repo.query_task_list_by_id(&user_id).await?;
     let mut tasks = vec![];
     for list in task_lists {
         let list_tasks = state.task_repo.query_all_tasks_of_task_list(&list).await?;
         for task in list_tasks {
-            tasks.push(state.task_repo.query_task_by_id(&task).await?);
+            tasks.push(TaskWithListId {
+                task: task_db_to_api(state.task_repo.query_task_by_id(&task).await?),
+                task_list_id: list.clone(),
+            });
         }
     }
 
-    Ok((
-        StatusCode::OK,
-        Json(GetTasksForList {
-            tasks: tasks.into_iter().map(|task| task_db_to_api(task)).collect(),
-        }),
-    )
-        .into_response())
+    Ok((StatusCode::OK, Json(GetTasksForUser { tasks })).into_response())
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetTasksForProject {
-    pub tasks: Vec<Task>,
+    pub tasks: Vec<TaskWithListId>,
 }
 
 pub async fn get_all_tasks_for_project(
@@ -113,17 +116,14 @@ pub async fn get_all_tasks_for_project(
     for list in task_lists {
         let list_tasks = task_repo.query_all_tasks_of_task_list(&list).await?;
         for task in list_tasks {
-            tasks.push(task_repo.query_task_by_id(&task).await?);
+            tasks.push(TaskWithListId {
+                task: task_db_to_api(state.task_repo.query_task_by_id(&task).await?),
+                task_list_id: list.clone(),
+            });
         }
     }
 
-    Ok((
-        StatusCode::OK,
-        Json(GetTasksForList {
-            tasks: tasks.into_iter().map(|task| task_db_to_api(task)).collect(),
-        }),
-    )
-        .into_response())
+    Ok((StatusCode::OK, Json(GetTasksForProject { tasks })).into_response())
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -223,14 +223,17 @@ pub async fn create_task_for_list(
         name: req.name.clone(),
         description: req.description.clone(),
         assignees: Some(assignees.clone()),
-        status: match req.status {
+        status: match &req.status {
             Status::Complete => "complete".to_owned(),
-            Status::Incomplete { id } => id,
+            Status::Incomplete { id } => id.to_owned(),
         },
         ddl: Some(Datetime {
             0: req.deadline.clone(),
         }),
-        complete: false,
+        complete: match req.status {
+            Status::Complete => true,
+            Status::Incomplete { .. } => false,
+        },
         pr_assigned: false,
         pr_number: 0,
         pr: crate::api::model::pr::PullRequest::default(),
