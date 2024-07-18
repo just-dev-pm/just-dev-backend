@@ -8,7 +8,7 @@ use axum::{
     Json, Router,
 };
 use axum_login::AuthSession;
-use futures::future::try_join_all;
+use futures::future::{join_all, try_join_all};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
@@ -41,21 +41,19 @@ pub async fn get_notifications(
     auth_session: AuthSession<AuthBackend>,
     State(state): State<Arc<Mutex<AppState>>>,
     Path(user_id): Path<String>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, IoErrorWrapper> {
     if let Some(value) = authorize_against_user_id(auth_session, &user_id) {
-        return value;
+        return Ok(value);
     }
 
-    let returned_notif_ids = state
+    let notif_ids = state
         .lock()
         .await
         .user_repo
         .query_notif_by_user_id(&user_id)
-        .await;
-    let notif_ids = match returned_notif_ids {
-        Ok(ids) => ids,
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-    };
+        .await?;
+
+    dbg!(&notif_ids);
 
     let ref state = state.lock().await;
     let notifs = notif_ids
@@ -71,11 +69,13 @@ pub async fn get_notifications(
         })
         .collect::<Vec<_>>();
 
-    let notifs = match try_join_all(notifs).await {
-        Ok(notifs) => notifs,
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-    };
-    (
+    let notifs: Vec<_> = join_all(notifs)
+        .await
+        .into_iter()
+        .filter_map(|notif| notif.ok())
+        .collect();
+
+    Ok((
         StatusCode::OK,
         Json(GetNotificationsResponse {
             notifications: notifs
@@ -84,7 +84,7 @@ pub async fn get_notifications(
                 .collect(),
         }),
     )
-        .into_response()
+        .into_response())
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

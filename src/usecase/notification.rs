@@ -6,7 +6,6 @@ use crate::db::{
     model::notification::{AssetPath, Notification, NotificationSource},
     repository::{
         agenda::AgendaRepository,
-        draft::DraftRepository,
         notification::NotificationRepository,
         task::TaskRepository,
         utils::{custom_io_error, exec_query, get_io_error},
@@ -104,7 +103,7 @@ pub async fn query_notif_by_id(
         .map_err(get_io_error)?
         .unwrap_or_default()
         .pop()
-        .ok_or(custom_io_error("Notification source find failed"))?;
+        .unwrap_or(Thing{tb: "".to_owned(), id: surrealdb::sql::Id::String("".to_owned())});
     let source_id = source.id.clone().to_string();
     let source = match source.tb.as_str() {
         "task" => NotificationSource::Task(AssetPath(
@@ -117,8 +116,8 @@ pub async fn query_notif_by_id(
         )),
         // "draft" => NotificationSource::Draft(source.id.to_string()),
         _ => NotificationSource::Task(AssetPath(
-            source_id.to_owned(),
-            task_repo.query_task_path_by_id(&source_id).await?,
+            "The target Resource not exists any more".to_owned(),
+            ("Dont_click".to_owned(), "Dont_click".to_owned()),
         )),
     };
     Ok((
