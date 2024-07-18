@@ -108,9 +108,9 @@ impl App {
                 .nest("/api/invitation", project::invitation_router())
                 .route_layer(login_required!(AuthBackend, login_url = "/login"))
                 .nest("/api/auth", auth::router())
-                .route("/api/webhooks/github", post(handle_pull_request_event).layer(middleware::from_fn(filter_github_webhook_requests))) // TODO: add auth to webhook
                 .layer(auth_layer)
                 .layer(cors_layer)
+                .route("/api/webhooks/github", post(handle_pull_request_event).layer(middleware::from_fn(filter_github_webhook_requests))) // TODO: add auth to webhook
                 .with_state(state.clone()),
             config: AppConfig {
                 url: env::var("JUST_DEV_SERVER_URL").expect("JUST_DEV_SERVER_URL must be set"),

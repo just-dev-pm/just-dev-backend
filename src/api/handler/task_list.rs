@@ -168,7 +168,7 @@ pub async fn get_task_lists_for_user(
         return value;
     }
 
-    let db_task_lists = state.user_repo.query_task_list_by_id(&user_id).await;
+    let db_task_lists = state.user_repo.query_task_list_by_id_without_from_project(&user_id).await;
     let db_task_lists = match db_task_lists {
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         Ok(task_lists) => task_lists,

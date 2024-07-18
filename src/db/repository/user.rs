@@ -122,6 +122,19 @@ impl UserRepository {
         Ok(unwrap_things(agendas))
     }
 
+    pub async fn query_task_list_by_id_without_from_project(&self, user_id: &str) -> Result<Vec<DbModelId>, io::Error> {
+        let mut response = exec_query(
+            &self.context,
+            format!("select ->own->task_list as task_lists from user where id == user:{user_id}")
+        )
+        .await?;
+        let task_lists = response
+            .take::<Option<Vec<Thing>>>((0, "task_lists"))
+            .map_err(get_io_error)?
+            .unwrap_or_default();
+        Ok(unwrap_things(task_lists))
+    }
+
     pub async fn query_task_list_by_id(&self, user_id: &str) -> Result<Vec<DbModelId>, io::Error> {
         let mut response = exec_double_query(
             &self.context,

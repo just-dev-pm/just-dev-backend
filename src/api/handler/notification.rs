@@ -53,8 +53,6 @@ pub async fn get_notifications(
         .query_notif_by_user_id(&user_id)
         .await?;
 
-    dbg!(&notif_ids);
-
     let ref state = state.lock().await;
     let notifs = notif_ids
         .into_iter()

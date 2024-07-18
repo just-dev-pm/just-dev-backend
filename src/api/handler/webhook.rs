@@ -1,4 +1,4 @@
-use std::{convert::Infallible, sync::Arc};
+use std::sync::Arc;
 
 use axum::{
     extract::{Request, State},
@@ -6,11 +6,10 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use octocrate::PullRequest;
 use octocrate_webhooks::{WebhookPullRequestClosed, WebhookPullRequestClosedPullRequest};
 use tokio::sync::Mutex;
 
-use crate::{api::app::AppState, db::repository::utils::unwrap_thing};
+use crate::{api::{app::AppState, model::pr::PullRequest}, db::repository::utils::unwrap_thing};
 
 use super::task::IoErrorWrapper;
 
@@ -41,11 +40,13 @@ pub async fn handle_pull_request_event(
         } else {
             return Ok(StatusCode::OK.into_response());
         };
-        dbg!(&req.action);
         let state = state.lock().await;
         let tasks = state.task_repo.query_task_by_pr_number(req.number).await?;
-
+        
         for mut task in tasks {
+            if task.pr.repo != req.repository.name {
+                continue;
+            }
             task.complete = true;
             let _ = state
                 .task_repo
